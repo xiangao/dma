@@ -1,0 +1,7 @@
+*.tar.gz
+*.Rhistory
+.Rproj.user
+*_cache/
+*_files/
+README.html
+*.knit.md

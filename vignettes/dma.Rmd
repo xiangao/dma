@@ -1,0 +1,309 @@
+---
+title: "Causal Mediation with Energy Regression: dma vs crumble"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Causal Mediation with Energy Regression: dma vs crumble}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+```{r parallel, eval=FALSE}
+# Optional: enable parallel cross-fitting
+library(future)
+plan(multisession)
+```
+
+## Overview
+
+`dma` implements the same causal mediation analysis framework as
+[crumble](https://github.com/nt-williams/crumble) (Liu, Williams, Rudolph &
+Díaz, 2024), but replaces `mlr3superlearner` with
+[engression](https://cran.r-project.org/package=engression) (Shen &
+Meinshausen, 2024) for all outcome regressions. Engression learns the full
+conditional distribution $P(Y \mid X)$ via the energy score, rather than fitting
+a point prediction $E[Y \mid X]$ via an ensemble of classical ML learners.
+
+Both packages share the same estimation pipeline:
+
+1. **$\theta$ outcome regressions** — nested pseudo-outcome cascade
+   ($\theta^3 \to \theta^2 \to \theta^1$ for natural/organic effects)
+2. **$\alpha$ density ratios** — cascaded Riesz representer estimation via neural
+   networks with the Riesz loss
+3. **EIF-based inference** — efficient influence function yields point estimates,
+   standard errors, and confidence intervals via the `ife` package
+
+The key difference:
+
+| Component | crumble | dma |
+|-----------|---------|-------------|
+| $\theta$ (outcome regressions) | `mlr3superlearner` | `engression` |
+| $\alpha$ (density ratios) | Custom Riesz NN | Same architecture, same loss |
+| Cross-fitting | `origami` | `origami` |
+| Inference | `ife` | `ife` |
+
+## Data: Weight & Behavior
+
+We use the `weight_behavior` dataset from the `mma` package, which is the
+primary example in crumble's documentation.  The causal structure is:
+
+- **Treatment** (`sports`): sports participation (binary: 1 or 2)
+- **Outcome** (`bmi`): body mass index (continuous)
+- **Mediators** (`exercises`, `overweigh`): exercise frequency and overweight status
+- **Baseline confounders** (`age`, `sex`, `tvhours`): age, sex, TV hours
+
+The causal question: *How much of the effect of sports participation on BMI
+operates directly vs.\ through exercise and overweight status?*
+
+```{r data}
+library(mma)
+data(weight_behavior)
+weight_behavior <- na.omit(weight_behavior)
+dim(weight_behavior)
+head(weight_behavior[, c("sports", "bmi", "exercises", "overweigh", "age", "sex", "tvhours")])
+```
+
+## Shift Functions
+
+Both packages use modified treatment policies to define interventions.
+For binary/categorical treatments, we set everyone to the control or treatment
+level:
+
+```{r shifts}
+d0 <- \(data, trt) factor(rep(1, nrow(data)), levels = c("1", "2"))
+d1 <- \(data, trt) factor(rep(2, nrow(data)), levels = c("1", "2"))
+```
+
+## Natural Effects
+
+Natural direct and indirect effects decompose the ATE into the pathway that
+operates directly ($A \to Y$) and indirectly through the mediators ($A \to M \to Y$).
+
+### crumble
+
+```{r crumble-natural, cache=FALSE}
+library(crumble)
+set.seed(2345)
+
+res_crumble_n <- crumble(
+  data = weight_behavior,
+  trt = "sports",
+  outcome = "bmi",
+  covar = c("age", "sex", "tvhours"),
+  mediators = c("exercises", "overweigh"),
+  d0 = d0,
+  d1 = d1,
+  effect = "N",
+  learners = c("mean", "glm"),
+  nn_module = sequential_module(),
+  control = crumble_control(crossfit_folds = 1L, epochs = 20L)
+)
+
+print(res_crumble_n)
+```
+
+### dma
+
+```{r dma-natural, cache=FALSE}
+library(dma)
+set.seed(2345)
+
+res_dma_n <- dma(
+  data = weight_behavior,
+  trt = "sports",
+  outcome = "bmi",
+  covar = c("age", "sex", "tvhours"),
+  mediators = c("exercises", "overweigh"),
+  d0 = d0,
+  d1 = d1,
+  effect = "N",
+  control = dma_control(
+    crossfit_folds = 1L,
+    num_epochs = 100L,
+    riesz_epochs = 20L,
+    noise_dim = 5L,
+    hidden_dim = 100L,
+    num_layer = 3L
+  )
+)
+
+print(res_dma_n)
+```
+
+### Comparison
+
+```{r compare-natural}
+tidy_crumble_n <- data.frame(
+  term = names(res_crumble_n$estimates),
+  crumble_est = sapply(res_crumble_n$estimates, \(x) x@x),
+  crumble_se = sapply(res_crumble_n$estimates, \(x) x@std_error)
+)
+
+tidy_enmed_n <- tidy(res_dma_n)
+
+comparison_n <- merge(tidy_crumble_n, tidy_enmed_n[, c("term", "estimate", "std.error")],
+                      by = "term", suffixes = c("_crumble", "_enmed"))
+names(comparison_n)[4:5] <- c("enmed_est", "enmed_se")
+print(comparison_n)
+```
+
+## Organic Effects
+
+Organic effects decompose the ATE into:
+
+- **ODE** (Organic Direct Effect): effect of $A$ on $Y$ *not* through $M$
+- **OIE** (Organic Indirect Effect): effect of $A$ on $Y$ through $M$
+
+Unlike natural effects, organic effects do not require a cross-world
+counterfactual — they compare observed vs.\ natural mediator distributions.
+
+### crumble
+
+```{r crumble-organic, cache=FALSE}
+set.seed(2345)
+
+res_crumble_o <- crumble(
+  data = weight_behavior,
+  trt = "sports",
+  outcome = "bmi",
+  covar = c("age", "sex", "tvhours"),
+  mediators = c("exercises", "overweigh"),
+  d0 = d0,
+  d1 = d1,
+  effect = "O",
+  learners = c("mean", "glm"),
+  nn_module = sequential_module(),
+  control = crumble_control(crossfit_folds = 1L, epochs = 20L)
+)
+
+print(res_crumble_o)
+```
+
+### dma
+
+```{r dma-organic, cache=FALSE}
+set.seed(2345)
+
+res_dma_o <- dma(
+  data = weight_behavior,
+  trt = "sports",
+  outcome = "bmi",
+  covar = c("age", "sex", "tvhours"),
+  mediators = c("exercises", "overweigh"),
+  d0 = d0,
+  d1 = d1,
+  effect = "O",
+  control = dma_control(
+    crossfit_folds = 1L,
+    num_epochs = 100L,
+    riesz_epochs = 20L,
+    noise_dim = 5L,
+    hidden_dim = 100L,
+    num_layer = 3L
+  )
+)
+
+print(res_dma_o)
+```
+
+### Comparison
+
+```{r compare-organic}
+tidy_crumble_o <- data.frame(
+  term = names(res_crumble_o$estimates),
+  crumble_est = sapply(res_crumble_o$estimates, \(x) x@x),
+  crumble_se = sapply(res_crumble_o$estimates, \(x) x@std_error)
+)
+
+tidy_enmed_o <- tidy(res_dma_o)
+
+comparison_o <- merge(tidy_crumble_o, tidy_enmed_o[, c("term", "estimate", "std.error")],
+                      by = "term", suffixes = c("_crumble", "_enmed"))
+names(comparison_o)[4:5] <- c("enmed_est", "enmed_se")
+print(comparison_o)
+```
+
+## Simulation Study
+
+To validate statistical properties, we run a small Monte Carlo study with a
+known DGP where true effects are calculable.
+
+**DGP**: $W \sim N(0,1)$, $A \mid W \sim \text{Bernoulli}(\text{logit}^{-1}(0.5W))$,
+$M = 0.5A + 0.3W + \varepsilon_M$, $Y = A + 0.8M + 0.4W + \varepsilon_Y$.
+
+True natural effects: NDE = 1.0, NIE = $0.8 \times 0.5 = 0.4$, ATE = 1.4.
+
+```{r simulation, cache=FALSE}
+set.seed(123)
+B <- 5
+n <- 500
+
+results <- data.frame()
+
+for (b in 1:B) {
+  W <- rnorm(n)
+  A <- rbinom(n, 1, plogis(0.5 * W))
+  M <- 0.5 * A + 0.3 * W + rnorm(n, sd = 0.5)
+  Y <- A + 0.8 * M + 0.4 * W + rnorm(n, sd = 0.5)
+  sim_data <- data.frame(W = W, A = A, M = M, Y = Y)
+
+  ctrl <- dma_control(crossfit_folds = 2L, num_epochs = 100L,
+    riesz_epochs = 30L, noise_dim = 3L, hidden_dim = 50L, num_layer = 2L)
+
+  res <- dma(data = sim_data, trt = "A", outcome = "Y", mediators = "M",
+    covar = "W", d0 = function(data, trt) 0, d1 = function(data, trt) 1,
+    effect = "N", control = ctrl)
+
+  td <- tidy(res)
+  td$rep <- b
+  results <- rbind(results, td)
+}
+
+# Summarize
+true_vals <- c(direct = 1.0, indirect = 0.4, ate = 1.4)
+summary_df <- do.call(rbind, lapply(names(true_vals), function(nm) {
+  sub <- results[results$term == nm, ]
+  data.frame(
+    term = nm,
+    true = true_vals[nm],
+    mean_est = mean(sub$estimate),
+    bias = mean(sub$estimate) - true_vals[nm],
+    emp_se = sd(sub$estimate),
+    mean_se = mean(sub$std.error),
+    coverage = mean(sub$conf.low <= true_vals[nm] & sub$conf.high >= true_vals[nm])
+  )
+}))
+
+rownames(summary_df) <- NULL
+print(summary_df)
+```
+
+## Summary
+
+Both `crumble` and `dma` implement the same semiparametric estimation
+framework for causal mediation.  The key trade-off:
+
+- **crumble** uses `mlr3superlearner`, which ensembles many classical ML
+  learners (GLM, random forest, MARS, etc.) — flexible but requires many
+  packages and tuning.
+- **dma** uses `engression`, a single neural network that learns the
+  full conditional distribution — simpler dependency structure, potentially
+  better for complex conditional distributions, but requires torch.
+
+For the Riesz representer ($\alpha$), both packages use the same approach:
+a neural network trained with the Riesz loss $E[\alpha(X)^2 - 2 w \cdot f(\alpha, X')]$.
+
+## Session Info
+
+```{r session-info}
+sessionInfo()
+```

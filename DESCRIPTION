@@ -1,0 +1,39 @@
+Package: dma
+Type: Package
+Title: Distributional Mediation Analysis
+Version: 0.1.0
+Authors@R:
+    person(given = "Xiao",
+           family = "Liu",
+           role = c("aut", "cre"),
+           email = "xiao.liu@example.com")
+Description: Implements causal mediation analysis using energy regression
+    (engression) for nuisance parameter estimation. Supports natural effects,
+    organic effects, randomized interventional effects, and recanting twins
+    decompositions. Interventions are specified using modified treatment policies.
+    Estimation follows the framework of Liu, Williams, Rudolph, and Diaz (2024)
+    with engression replacing traditional machine learning for outcome regressions
+    and engression-style neural networks for Riesz representer estimation.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends:
+    R (>= 4.0.0)
+RoxygenNote: 7.3.2
+Imports:
+    checkmate,
+    Matrix,
+    origami,
+    torch,
+    cli,
+    S7,
+    data.table,
+    coro,
+    engression,
+    future.apply,
+    generics,
+    ife (>= 0.2.1)
+Suggests:
+    testthat (>= 3.0.0),
+    Rsymphony
+Config/testthat/edition: 3
