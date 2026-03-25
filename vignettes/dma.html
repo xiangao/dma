@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Causal Mediation with Energy Regression: dma vs crumble</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Causal Mediation with Energy Regression:
+dma vs crumble</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># Optional: enable parallel cross-fitting</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(future)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">plan</span>(multisession)</span></code></pre></div>
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p><code>dma</code> implements the same causal mediation analysis
+framework as <a href="https://github.com/nt-williams/crumble">crumble</a> (Liu,
+Williams, Rudolph &amp; Díaz, 2024), but replaces
+<code>mlr3superlearner</code> with <a href="https://cran.r-project.org/package=engression">engression</a>
+(Shen &amp; Meinshausen, 2024) for all outcome regressions. Engression
+learns the full conditional distribution <span class="math inline">\(P(Y
+\mid X)\)</span> via the energy score, rather than fitting a point
+prediction <span class="math inline">\(E[Y \mid X]\)</span> via an
+ensemble of classical ML learners.</p>
+<p>Both packages share the same estimation pipeline:</p>
+<ol style="list-style-type: decimal">
+<li><strong><span class="math inline">\(\theta\)</span> outcome
+regressions</strong> — nested pseudo-outcome cascade (<span class="math inline">\(\theta^3 \to \theta^2 \to \theta^1\)</span> for
+natural/organic effects)</li>
+<li><strong><span class="math inline">\(\alpha\)</span> density
+ratios</strong> — cascaded Riesz representer estimation via neural
+networks with the Riesz loss</li>
+<li><strong>EIF-based inference</strong> — efficient influence function
+yields point estimates, standard errors, and confidence intervals via
+the <code>ife</code> package</li>
+</ol>
+<p>The key difference:</p>
+<table style="width:100%;">
+<colgroup>
+<col width="33%" />
+<col width="27%" />
+<col width="39%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>crumble</th>
+<th>dma</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(\theta\)</span> (outcome
+regressions)</td>
+<td><code>mlr3superlearner</code></td>
+<td><code>engression</code></td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\alpha\)</span> (density ratios)</td>
+<td>Custom Riesz NN</td>
+<td>Same architecture, same loss</td>
+</tr>
+<tr class="odd">
+<td>Cross-fitting</td>
+<td><code>origami</code></td>
+<td><code>origami</code></td>
+</tr>
+<tr class="even">
+<td>Inference</td>
+<td><code>ife</code></td>
+<td><code>ife</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="data-weight-behavior" class="section level2">
+<h2>Data: Weight &amp; Behavior</h2>
+<p>We use the <code>weight_behavior</code> dataset from the
+<code>mma</code> package, which is the primary example in crumble’s
+documentation. The causal structure is:</p>
+<ul>
+<li><strong>Treatment</strong> (<code>sports</code>): sports
+participation (binary: 1 or 2)</li>
+<li><strong>Outcome</strong> (<code>bmi</code>): body mass index
+(continuous)</li>
+<li><strong>Mediators</strong> (<code>exercises</code>,
+<code>overweigh</code>): exercise frequency and overweight status</li>
+<li><strong>Baseline confounders</strong> (<code>age</code>,
+<code>sex</code>, <code>tvhours</code>): age, sex, TV hours</li>
+</ul>
+<p>The causal question: <em>How much of the effect of sports
+participation on BMI operates directly vs. through exercise and
+overweight status?</em></p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(mma)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="fu">data</span>(weight_behavior)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>weight_behavior <span class="ot">&lt;-</span> <span class="fu">na.omit</span>(weight_behavior)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">dim</span>(weight_behavior)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#&gt; [1] 567  15</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="fu">head</span>(weight_behavior[, <span class="fu">c</span>(<span class="st">&quot;sports&quot;</span>, <span class="st">&quot;bmi&quot;</span>, <span class="st">&quot;exercises&quot;</span>, <span class="st">&quot;overweigh&quot;</span>, <span class="st">&quot;age&quot;</span>, <span class="st">&quot;sex&quot;</span>, <span class="st">&quot;tvhours&quot;</span>)])</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co">#&gt;   sports      bmi exercises overweigh  age sex tvhours</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">#&gt; 1      2 18.20665         2         0 12.2   F       4</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt; 2      1 22.78401         8         0 12.8   M       4</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; 4      2 25.56754         9         1 12.1   M       0</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt; 5      1 15.07408        12         0 12.3   M       2</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; 6      1 22.98338         1         0 11.8   M       4</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; 8      1 19.15658         1         0 12.1   F       0</span></span></code></pre></div>
+</div>
+<div id="shift-functions" class="section level2">
+<h2>Shift Functions</h2>
+<p>Both packages use modified treatment policies to define
+interventions. For binary/categorical treatments, we set everyone to the
+control or treatment level:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>d0 <span class="ot">&lt;-</span> \(data, trt) <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="dv">1</span>, <span class="fu">nrow</span>(data)), <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;1&quot;</span>, <span class="st">&quot;2&quot;</span>))</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>d1 <span class="ot">&lt;-</span> \(data, trt) <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="dv">2</span>, <span class="fu">nrow</span>(data)), <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;1&quot;</span>, <span class="st">&quot;2&quot;</span>))</span></code></pre></div>
+</div>
+<div id="natural-effects" class="section level2">
+<h2>Natural Effects</h2>
+<p>Natural direct and indirect effects decompose the ATE into the
+pathway that operates directly (<span class="math inline">\(A \to
+Y\)</span>) and indirectly through the mediators (<span class="math inline">\(A \to M \to Y\)</span>).</p>
+<div id="crumble" class="section level3">
+<h3>crumble</h3>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">library</span>(crumble)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">2345</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>res_crumble_n <span class="ot">&lt;-</span> <span class="fu">crumble</span>(</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">data =</span> weight_behavior,</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">trt =</span> <span class="st">&quot;sports&quot;</span>,</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="st">&quot;bmi&quot;</span>,</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>  <span class="at">covar =</span> <span class="fu">c</span>(<span class="st">&quot;age&quot;</span>, <span class="st">&quot;sex&quot;</span>, <span class="st">&quot;tvhours&quot;</span>),</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="at">mediators =</span> <span class="fu">c</span>(<span class="st">&quot;exercises&quot;</span>, <span class="st">&quot;overweigh&quot;</span>),</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  <span class="at">d0 =</span> d0,</span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>  <span class="at">d1 =</span> d1,</span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>  <span class="at">effect =</span> <span class="st">&quot;N&quot;</span>,</span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>  <span class="at">learners =</span> <span class="fu">c</span>(<span class="st">&quot;mean&quot;</span>, <span class="st">&quot;glm&quot;</span>),</span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>  <span class="at">nn_module =</span> <span class="fu">sequential_module</span>(),</span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">crumble_control</span>(<span class="at">crossfit_folds =</span> <span class="dv">1</span><span class="dt">L</span>, <span class="at">epochs =</span> <span class="dv">20</span><span class="dt">L</span>)</span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>)</span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="fu">print</span>(res_crumble_n)</span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.016</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.182</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt;       Estimate: 1.014</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.235</span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a><span class="co">#&gt;       Estimate: 1.03</span></span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.293</span></span></code></pre></div>
+</div>
+<div id="dma" class="section level3">
+<h3>dma</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">library</span>(dma)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">2345</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>res_dma_n <span class="ot">&lt;-</span> <span class="fu">dma</span>(</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">data =</span> weight_behavior,</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="at">trt =</span> <span class="st">&quot;sports&quot;</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="st">&quot;bmi&quot;</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="at">covar =</span> <span class="fu">c</span>(<span class="st">&quot;age&quot;</span>, <span class="st">&quot;sex&quot;</span>, <span class="st">&quot;tvhours&quot;</span>),</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="at">mediators =</span> <span class="fu">c</span>(<span class="st">&quot;exercises&quot;</span>, <span class="st">&quot;overweigh&quot;</span>),</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>  <span class="at">d0 =</span> d0,</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>  <span class="at">d1 =</span> d1,</span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>  <span class="at">effect =</span> <span class="st">&quot;N&quot;</span>,</span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">dma_control</span>(</span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>    <span class="at">crossfit_folds =</span> <span class="dv">1</span><span class="dt">L</span>,</span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>    <span class="at">num_epochs =</span> <span class="dv">100</span><span class="dt">L</span>,</span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a>    <span class="at">riesz_epochs =</span> <span class="dv">20</span><span class="dt">L</span>,</span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a>    <span class="at">noise_dim =</span> <span class="dv">5</span><span class="dt">L</span>,</span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a>    <span class="at">hidden_dim =</span> <span class="dv">100</span><span class="dt">L</span>,</span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a>    <span class="at">num_layer =</span> <span class="dv">3</span><span class="dt">L</span></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a>  )</span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a>)</span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a></span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a><span class="fu">print</span>(res_dma_n)</span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="co">#&gt;       Estimate: -0.063</span></span>
+<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.192</span></span>
+<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.993</span></span>
+<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.269</span></span>
+<span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.93</span></span>
+<span id="cb5-29"><a href="#cb5-29" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.346</span></span></code></pre></div>
+</div>
+<div id="comparison" class="section level3">
+<h3>Comparison</h3>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>tidy_crumble_n <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="at">term =</span> <span class="fu">names</span>(res_crumble_n<span class="sc">$</span>estimates),</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">crumble_est =</span> <span class="fu">sapply</span>(res_crumble_n<span class="sc">$</span>estimates, \(x) x<span class="sc">@</span>x),</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">crumble_se =</span> <span class="fu">sapply</span>(res_crumble_n<span class="sc">$</span>estimates, \(x) x<span class="sc">@</span>std_error)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>)</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>tidy_enmed_n <span class="ot">&lt;-</span> <span class="fu">tidy</span>(res_dma_n)</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>comparison_n <span class="ot">&lt;-</span> <span class="fu">merge</span>(tidy_crumble_n, tidy_enmed_n[, <span class="fu">c</span>(<span class="st">&quot;term&quot;</span>, <span class="st">&quot;estimate&quot;</span>, <span class="st">&quot;std.error&quot;</span>)],</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>                      <span class="at">by =</span> <span class="st">&quot;term&quot;</span>, <span class="at">suffixes =</span> <span class="fu">c</span>(<span class="st">&quot;_crumble&quot;</span>, <span class="st">&quot;_enmed&quot;</span>))</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="fu">names</span>(comparison_n)[<span class="dv">4</span><span class="sc">:</span><span class="dv">5</span>] <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;enmed_est&quot;</span>, <span class="st">&quot;enmed_se&quot;</span>)</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="fu">print</span>(comparison_n)</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co">#&gt;       term crumble_est crumble_se   enmed_est  enmed_se</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt; 1      ate  1.03004469  0.2927182  0.92987428 0.3458274</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt; 2   direct  0.01649725  0.1819561 -0.06273863 0.1915764</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt; 3 indirect  1.01354744  0.2345368  0.99261291 0.2690995</span></span></code></pre></div>
+</div>
+</div>
+<div id="organic-effects" class="section level2">
+<h2>Organic Effects</h2>
+<p>Organic effects decompose the ATE into:</p>
+<ul>
+<li><strong>ODE</strong> (Organic Direct Effect): effect of <span class="math inline">\(A\)</span> on <span class="math inline">\(Y\)</span> <em>not</em> through <span class="math inline">\(M\)</span></li>
+<li><strong>OIE</strong> (Organic Indirect Effect): effect of <span class="math inline">\(A\)</span> on <span class="math inline">\(Y\)</span> through <span class="math inline">\(M\)</span></li>
+</ul>
+<p>Unlike natural effects, organic effects do not require a cross-world
+counterfactual — they compare observed vs. natural mediator
+distributions.</p>
+<div id="crumble-1" class="section level3">
+<h3>crumble</h3>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">2345</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>res_crumble_o <span class="ot">&lt;-</span> <span class="fu">crumble</span>(</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="at">data =</span> weight_behavior,</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  <span class="at">trt =</span> <span class="st">&quot;sports&quot;</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="st">&quot;bmi&quot;</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="at">covar =</span> <span class="fu">c</span>(<span class="st">&quot;age&quot;</span>, <span class="st">&quot;sex&quot;</span>, <span class="st">&quot;tvhours&quot;</span>),</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="at">mediators =</span> <span class="fu">c</span>(<span class="st">&quot;exercises&quot;</span>, <span class="st">&quot;overweigh&quot;</span>),</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="at">d0 =</span> d0,</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  <span class="at">d1 =</span> d1,</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>  <span class="at">effect =</span> <span class="st">&quot;O&quot;</span>,</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>  <span class="at">learners =</span> <span class="fu">c</span>(<span class="st">&quot;mean&quot;</span>, <span class="st">&quot;glm&quot;</span>),</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>  <span class="at">nn_module =</span> <span class="fu">sequential_module</span>(),</span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">crumble_control</span>(<span class="at">crossfit_folds =</span> <span class="dv">1</span><span class="dt">L</span>, <span class="at">epochs =</span> <span class="dv">20</span><span class="dt">L</span>)</span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>)</span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="fu">print</span>(res_crumble_o)</span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.035</span></span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.178</span></span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a><span class="co">#&gt;       Estimate: 1.004</span></span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.22</span></span></code></pre></div>
+</div>
+<div id="dma-1" class="section level3">
+<h3>dma</h3>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">2345</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>res_dma_o <span class="ot">&lt;-</span> <span class="fu">dma</span>(</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">data =</span> weight_behavior,</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">trt =</span> <span class="st">&quot;sports&quot;</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="st">&quot;bmi&quot;</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="at">covar =</span> <span class="fu">c</span>(<span class="st">&quot;age&quot;</span>, <span class="st">&quot;sex&quot;</span>, <span class="st">&quot;tvhours&quot;</span>),</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="at">mediators =</span> <span class="fu">c</span>(<span class="st">&quot;exercises&quot;</span>, <span class="st">&quot;overweigh&quot;</span>),</span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="at">d0 =</span> d0,</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  <span class="at">d1 =</span> d1,</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>  <span class="at">effect =</span> <span class="st">&quot;O&quot;</span>,</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">dma_control</span>(</span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>    <span class="at">crossfit_folds =</span> <span class="dv">1</span><span class="dt">L</span>,</span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>    <span class="at">num_epochs =</span> <span class="dv">100</span><span class="dt">L</span>,</span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>    <span class="at">riesz_epochs =</span> <span class="dv">20</span><span class="dt">L</span>,</span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a>    <span class="at">noise_dim =</span> <span class="dv">5</span><span class="dt">L</span>,</span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a>    <span class="at">hidden_dim =</span> <span class="dv">100</span><span class="dt">L</span>,</span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a>    <span class="at">num_layer =</span> <span class="dv">3</span><span class="dt">L</span></span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>  )</span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a>)</span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a></span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a><span class="fu">print</span>(res_dma_o)</span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.147</span></span>
+<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.185</span></span>
+<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.818</span></span>
+<span id="cb8-26"><a href="#cb8-26" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.236</span></span></code></pre></div>
+</div>
+<div id="comparison-1" class="section level3">
+<h3>Comparison</h3>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>tidy_crumble_o <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="at">term =</span> <span class="fu">names</span>(res_crumble_o<span class="sc">$</span>estimates),</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="at">crumble_est =</span> <span class="fu">sapply</span>(res_crumble_o<span class="sc">$</span>estimates, \(x) x<span class="sc">@</span>x),</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  <span class="at">crumble_se =</span> <span class="fu">sapply</span>(res_crumble_o<span class="sc">$</span>estimates, \(x) x<span class="sc">@</span>std_error)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>)</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>tidy_enmed_o <span class="ot">&lt;-</span> <span class="fu">tidy</span>(res_dma_o)</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>comparison_o <span class="ot">&lt;-</span> <span class="fu">merge</span>(tidy_crumble_o, tidy_enmed_o[, <span class="fu">c</span>(<span class="st">&quot;term&quot;</span>, <span class="st">&quot;estimate&quot;</span>, <span class="st">&quot;std.error&quot;</span>)],</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>                      <span class="at">by =</span> <span class="st">&quot;term&quot;</span>, <span class="at">suffixes =</span> <span class="fu">c</span>(<span class="st">&quot;_crumble&quot;</span>, <span class="st">&quot;_enmed&quot;</span>))</span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="fu">names</span>(comparison_o)[<span class="dv">4</span><span class="sc">:</span><span class="dv">5</span>] <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;enmed_est&quot;</span>, <span class="st">&quot;enmed_se&quot;</span>)</span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="fu">print</span>(comparison_o)</span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co">#&gt;   term crumble_est crumble_se enmed_est  enmed_se</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#&gt; 1  ode  0.03481965  0.1777086 0.1471528 0.1846888</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="co">#&gt; 2  oie  1.00406632  0.2203622 0.8181815 0.2362829</span></span></code></pre></div>
+</div>
+</div>
+<div id="simulation-study" class="section level2">
+<h2>Simulation Study</h2>
+<p>To validate statistical properties, we run a small Monte Carlo study
+with a known DGP where true effects are calculable.</p>
+<p><strong>DGP</strong>: <span class="math inline">\(W \sim
+N(0,1)\)</span>, <span class="math inline">\(A \mid W \sim
+\text{Bernoulli}(\text{logit}^{-1}(0.5W))\)</span>, <span class="math inline">\(M = 0.5A + 0.3W + \varepsilon_M\)</span>, <span class="math inline">\(Y = A + 0.8M + 0.4W + \varepsilon_Y\)</span>.</p>
+<p>True natural effects: NDE = 1.0, NIE = <span class="math inline">\(0.8 \times 0.5 = 0.4\)</span>, ATE = 1.4.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>B <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">data.frame</span>()</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="cf">for</span> (b <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>B) {</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>  W <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>  A <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(n, <span class="dv">1</span>, <span class="fu">plogis</span>(<span class="fl">0.5</span> <span class="sc">*</span> W))</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>  M <span class="ot">&lt;-</span> <span class="fl">0.5</span> <span class="sc">*</span> A <span class="sc">+</span> <span class="fl">0.3</span> <span class="sc">*</span> W <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">0.5</span>)</span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>  Y <span class="ot">&lt;-</span> A <span class="sc">+</span> <span class="fl">0.8</span> <span class="sc">*</span> M <span class="sc">+</span> <span class="fl">0.4</span> <span class="sc">*</span> W <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">0.5</span>)</span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a>  sim_data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">W =</span> W, <span class="at">A =</span> A, <span class="at">M =</span> M, <span class="at">Y =</span> Y)</span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a></span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a>  ctrl <span class="ot">&lt;-</span> <span class="fu">dma_control</span>(<span class="at">crossfit_folds =</span> <span class="dv">2</span><span class="dt">L</span>, <span class="at">num_epochs =</span> <span class="dv">100</span><span class="dt">L</span>,</span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a>    <span class="at">riesz_epochs =</span> <span class="dv">30</span><span class="dt">L</span>, <span class="at">noise_dim =</span> <span class="dv">3</span><span class="dt">L</span>, <span class="at">hidden_dim =</span> <span class="dv">50</span><span class="dt">L</span>, <span class="at">num_layer =</span> <span class="dv">2</span><span class="dt">L</span>)</span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a></span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a>  res <span class="ot">&lt;-</span> <span class="fu">dma</span>(<span class="at">data =</span> sim_data, <span class="at">trt =</span> <span class="st">&quot;A&quot;</span>, <span class="at">outcome =</span> <span class="st">&quot;Y&quot;</span>, <span class="at">mediators =</span> <span class="st">&quot;M&quot;</span>,</span>
+<span id="cb10-18"><a href="#cb10-18" tabindex="-1"></a>    <span class="at">covar =</span> <span class="st">&quot;W&quot;</span>, <span class="at">d0 =</span> <span class="cf">function</span>(data, trt) <span class="dv">0</span>, <span class="at">d1 =</span> <span class="cf">function</span>(data, trt) <span class="dv">1</span>,</span>
+<span id="cb10-19"><a href="#cb10-19" tabindex="-1"></a>    <span class="at">effect =</span> <span class="st">&quot;N&quot;</span>, <span class="at">control =</span> ctrl)</span>
+<span id="cb10-20"><a href="#cb10-20" tabindex="-1"></a></span>
+<span id="cb10-21"><a href="#cb10-21" tabindex="-1"></a>  td <span class="ot">&lt;-</span> <span class="fu">tidy</span>(res)</span>
+<span id="cb10-22"><a href="#cb10-22" tabindex="-1"></a>  td<span class="sc">$</span>rep <span class="ot">&lt;-</span> b</span>
+<span id="cb10-23"><a href="#cb10-23" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">rbind</span>(results, td)</span>
+<span id="cb10-24"><a href="#cb10-24" tabindex="-1"></a>}</span>
+<span id="cb10-25"><a href="#cb10-25" tabindex="-1"></a></span>
+<span id="cb10-26"><a href="#cb10-26" tabindex="-1"></a><span class="co"># Summarize</span></span>
+<span id="cb10-27"><a href="#cb10-27" tabindex="-1"></a>true_vals <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">direct =</span> <span class="fl">1.0</span>, <span class="at">indirect =</span> <span class="fl">0.4</span>, <span class="at">ate =</span> <span class="fl">1.4</span>)</span>
+<span id="cb10-28"><a href="#cb10-28" tabindex="-1"></a>summary_df <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, <span class="fu">lapply</span>(<span class="fu">names</span>(true_vals), <span class="cf">function</span>(nm) {</span>
+<span id="cb10-29"><a href="#cb10-29" tabindex="-1"></a>  sub <span class="ot">&lt;-</span> results[results<span class="sc">$</span>term <span class="sc">==</span> nm, ]</span>
+<span id="cb10-30"><a href="#cb10-30" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
+<span id="cb10-31"><a href="#cb10-31" tabindex="-1"></a>    <span class="at">term =</span> nm,</span>
+<span id="cb10-32"><a href="#cb10-32" tabindex="-1"></a>    <span class="at">true =</span> true_vals[nm],</span>
+<span id="cb10-33"><a href="#cb10-33" tabindex="-1"></a>    <span class="at">mean_est =</span> <span class="fu">mean</span>(sub<span class="sc">$</span>estimate),</span>
+<span id="cb10-34"><a href="#cb10-34" tabindex="-1"></a>    <span class="at">bias =</span> <span class="fu">mean</span>(sub<span class="sc">$</span>estimate) <span class="sc">-</span> true_vals[nm],</span>
+<span id="cb10-35"><a href="#cb10-35" tabindex="-1"></a>    <span class="at">emp_se =</span> <span class="fu">sd</span>(sub<span class="sc">$</span>estimate),</span>
+<span id="cb10-36"><a href="#cb10-36" tabindex="-1"></a>    <span class="at">mean_se =</span> <span class="fu">mean</span>(sub<span class="sc">$</span>std.error),</span>
+<span id="cb10-37"><a href="#cb10-37" tabindex="-1"></a>    <span class="at">coverage =</span> <span class="fu">mean</span>(sub<span class="sc">$</span>conf.low <span class="sc">&lt;=</span> true_vals[nm] <span class="sc">&amp;</span> sub<span class="sc">$</span>conf.high <span class="sc">&gt;=</span> true_vals[nm])</span>
+<span id="cb10-38"><a href="#cb10-38" tabindex="-1"></a>  )</span>
+<span id="cb10-39"><a href="#cb10-39" tabindex="-1"></a>}))</span>
+<span id="cb10-40"><a href="#cb10-40" tabindex="-1"></a></span>
+<span id="cb10-41"><a href="#cb10-41" tabindex="-1"></a><span class="fu">rownames</span>(summary_df) <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
+<span id="cb10-42"><a href="#cb10-42" tabindex="-1"></a><span class="fu">print</span>(summary_df)</span>
+<span id="cb10-43"><a href="#cb10-43" tabindex="-1"></a><span class="co">#&gt;       term true  mean_est        bias     emp_se    mean_se coverage</span></span>
+<span id="cb10-44"><a href="#cb10-44" tabindex="-1"></a><span class="co">#&gt; 1   direct  1.0 1.0081662 0.008166205 0.06457773 0.04730193      0.8</span></span>
+<span id="cb10-45"><a href="#cb10-45" tabindex="-1"></a><span class="co">#&gt; 2 indirect  0.4 0.4193672 0.019367238 0.06307747 0.03285190      0.6</span></span>
+<span id="cb10-46"><a href="#cb10-46" tabindex="-1"></a><span class="co">#&gt; 3      ate  1.4 1.4275334 0.027533443 0.03778953 0.05740977      1.0</span></span></code></pre></div>
+</div>
+<div id="summary" class="section level2">
+<h2>Summary</h2>
+<p>Both <code>crumble</code> and <code>dma</code> implement the same
+semiparametric estimation framework for causal mediation. The key
+trade-off:</p>
+<ul>
+<li><strong>crumble</strong> uses <code>mlr3superlearner</code>, which
+ensembles many classical ML learners (GLM, random forest, MARS, etc.) —
+flexible but requires many packages and tuning.</li>
+<li><strong>dma</strong> uses <code>engression</code>, a single neural
+network that learns the full conditional distribution — simpler
+dependency structure, potentially better for complex conditional
+distributions, but requires torch.</li>
+</ul>
+<p>For the Riesz representer (<span class="math inline">\(\alpha\)</span>), both packages use the same
+approach: a neural network trained with the Riesz loss <span class="math inline">\(E[\alpha(X)^2 - 2 w \cdot f(\alpha,
+X&#39;)]\)</span>.</p>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="co">#&gt; R version 4.5.2 (2025-10-31)</span></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="co">#&gt; Platform: x86_64-pc-linux-gnu</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="co">#&gt; Running under: Ubuntu 24.04.4 LTS</span></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="co">#&gt; Matrix products: default</span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co">#&gt; BLAS:   /usr/lib/x86_64-linux-gnu/atlas/libblas.so.3.10.3 </span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co">#&gt; LAPACK: /usr/lib/x86_64-linux-gnu/atlas/liblapack.so.3.10.3;  LAPACK version 3.11.0</span></span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="co">#&gt; locale:</span></span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a><span class="co">#&gt;  [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              </span></span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a><span class="co">#&gt;  [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    </span></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a><span class="co">#&gt;  [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   </span></span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a><span class="co">#&gt;  [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 </span></span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a><span class="co">#&gt;  [9] LC_ADDRESS=C               LC_TELEPHONE=C            </span></span>
+<span id="cb11-16"><a href="#cb11-16" tabindex="-1"></a><span class="co">#&gt; [11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       </span></span>
+<span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-18"><a href="#cb11-18" tabindex="-1"></a><span class="co">#&gt; time zone: America/New_York</span></span>
+<span id="cb11-19"><a href="#cb11-19" tabindex="-1"></a><span class="co">#&gt; tzcode source: system (glibc)</span></span>
+<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a><span class="co">#&gt; attached base packages:</span></span>
+<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a><span class="co">#&gt; [1] splines   stats     graphics  grDevices utils     datasets  methods  </span></span>
+<span id="cb11-23"><a href="#cb11-23" tabindex="-1"></a><span class="co">#&gt; [8] base     </span></span>
+<span id="cb11-24"><a href="#cb11-24" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-25"><a href="#cb11-25" tabindex="-1"></a><span class="co">#&gt; other attached packages:</span></span>
+<span id="cb11-26"><a href="#cb11-26" tabindex="-1"></a><span class="co">#&gt;  [1] dma_0.1.0      mlr3_1.4.0     future_1.69.0  crumble_0.1.3  mma_10.8-1    </span></span>
+<span id="cb11-27"><a href="#cb11-27" tabindex="-1"></a><span class="co">#&gt;  [6] gplots_3.3.0   car_3.1-5      carData_3.0-6  survival_3.8-6 gbm_2.2.3     </span></span>
+<span id="cb11-28"><a href="#cb11-28" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-29"><a href="#cb11-29" tabindex="-1"></a><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
+<span id="cb11-30"><a href="#cb11-30" tabindex="-1"></a><span class="co">#&gt;  [1] shape_1.4.6.1          xfun_0.56              bslib_0.10.0          </span></span>
+<span id="cb11-31"><a href="#cb11-31" tabindex="-1"></a><span class="co">#&gt;  [4] caTools_1.18.3         processx_3.8.6         collapse_2.1.6        </span></span>
+<span id="cb11-32"><a href="#cb11-32" tabindex="-1"></a><span class="co">#&gt;  [7] lattice_0.22-9         callr_3.7.6            mlr3superlearner_0.1.2</span></span>
+<span id="cb11-33"><a href="#cb11-33" tabindex="-1"></a><span class="co">#&gt; [10] vctrs_0.7.1            tools_4.5.2            ps_1.9.1              </span></span>
+<span id="cb11-34"><a href="#cb11-34" tabindex="-1"></a><span class="co">#&gt; [13] bitops_1.0-9           generics_0.1.4         parallel_4.5.2        </span></span>
+<span id="cb11-35"><a href="#cb11-35" tabindex="-1"></a><span class="co">#&gt; [16] torch_0.16.3           Matrix_1.7-4           KernSmooth_2.23-26    </span></span>
+<span id="cb11-36"><a href="#cb11-36" tabindex="-1"></a><span class="co">#&gt; [19] data.table_1.18.2.1    checkmate_2.3.4        nnls_1.6              </span></span>
+<span id="cb11-37"><a href="#cb11-37" tabindex="-1"></a><span class="co">#&gt; [22] S7_0.2.1               uuid_1.2-2             assertthat_0.2.1      </span></span>
+<span id="cb11-38"><a href="#cb11-38" tabindex="-1"></a><span class="co">#&gt; [25] lifecycle_1.0.5        compiler_4.5.2         codetools_0.2-20      </span></span>
+<span id="cb11-39"><a href="#cb11-39" tabindex="-1"></a><span class="co">#&gt; [28] htmltools_0.5.9        sass_0.4.10            glmnet_4.1-10         </span></span>
+<span id="cb11-40"><a href="#cb11-40" tabindex="-1"></a><span class="co">#&gt; [31] yaml_2.3.12            Formula_1.2-5          crayon_1.5.3          </span></span>
+<span id="cb11-41"><a href="#cb11-41" tabindex="-1"></a><span class="co">#&gt; [34] jquerylib_0.1.4        cachem_1.1.0           iterators_1.0.14      </span></span>
+<span id="cb11-42"><a href="#cb11-42" tabindex="-1"></a><span class="co">#&gt; [37] foreach_1.5.2          abind_1.4-8            ife_0.2.3             </span></span>
+<span id="cb11-43"><a href="#cb11-43" tabindex="-1"></a><span class="co">#&gt; [40] parallelly_1.46.1      gtools_3.9.5           digest_0.6.39         </span></span>
+<span id="cb11-44"><a href="#cb11-44" tabindex="-1"></a><span class="co">#&gt; [43] engression_0.1.3       purrr_1.2.1            listenv_0.10.1        </span></span>
+<span id="cb11-45"><a href="#cb11-45" tabindex="-1"></a><span class="co">#&gt; [46] fastmap_1.2.0          grid_4.5.2             cli_3.6.5             </span></span>
+<span id="cb11-46"><a href="#cb11-46" tabindex="-1"></a><span class="co">#&gt; [49] magrittr_2.0.4         paradox_1.0.1          future.apply_1.20.2   </span></span>
+<span id="cb11-47"><a href="#cb11-47" tabindex="-1"></a><span class="co">#&gt; [52] withr_3.0.2            backports_1.5.0        lmtp_1.5.3            </span></span>
+<span id="cb11-48"><a href="#cb11-48" tabindex="-1"></a><span class="co">#&gt; [55] bit64_4.6.0-1          rmarkdown_2.30         globals_0.19.1        </span></span>
+<span id="cb11-49"><a href="#cb11-49" tabindex="-1"></a><span class="co">#&gt; [58] bit_4.6.0              otel_0.2.0             origami_1.0.7         </span></span>
+<span id="cb11-50"><a href="#cb11-50" tabindex="-1"></a><span class="co">#&gt; [61] progressr_0.18.0       evaluate_1.0.5         knitr_1.51            </span></span>
+<span id="cb11-51"><a href="#cb11-51" tabindex="-1"></a><span class="co">#&gt; [64] mlr3misc_0.20.0        rlang_1.1.7            Rcpp_1.1.1            </span></span>
+<span id="cb11-52"><a href="#cb11-52" tabindex="-1"></a><span class="co">#&gt; [67] palmerpenguins_0.1.1   coro_1.1.0             jsonlite_2.0.0        </span></span>
+<span id="cb11-53"><a href="#cb11-53" tabindex="-1"></a><span class="co">#&gt; [70] lgr_0.5.2              R6_2.6.1               mlr3learners_0.14.0</span></span></code></pre></div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

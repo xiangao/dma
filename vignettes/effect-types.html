@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Effect Types: dma vs crumble</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Effect Types: dma vs crumble</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># Optional: enable parallel cross-fitting</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(future)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">plan</span>(multisession)</span></code></pre></div>
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p>dma supports four mediation effect decompositions from the general
+framework of Liu, Williams, Rudolph &amp; Díaz (2024):</p>
+<table>
+<thead>
+<tr class="header">
+<th>Effect</th>
+<th>Estimands</th>
+<th align="center">Requires <code>moc</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Natural (N)</td>
+<td>NDE, NIE, ATE</td>
+<td align="center">No</td>
+</tr>
+<tr class="even">
+<td>Organic (O)</td>
+<td>ODE, OIE</td>
+<td align="center">No</td>
+</tr>
+<tr class="odd">
+<td>Randomized Interventional (RI)</td>
+<td>RDE, RIE</td>
+<td align="center">Yes</td>
+</tr>
+<tr class="even">
+<td>Recanting Twins (RT)</td>
+<td>4-pathway decomposition</td>
+<td align="center">Yes</td>
+</tr>
+</tbody>
+</table>
+<p>This vignette demonstrates each effect type on the
+<code>weight_behavior</code> dataset from the <code>mma</code> package
+and compares results with <a href="https://github.com/nt-williams/crumble">crumble</a>, which uses
+the same estimation framework but with <code>mlr3superlearner</code>
+(ensemble of mean, GLM, MARS, and random forest) instead of engression
+for outcome regressions. Crumble results are taken from its <a href="https://github.com/nt-williams/crumble">README</a> using
+<code>crossfit_folds = 1L, epochs = 20L</code> and
+<code>learners = c(&quot;mean&quot;, &quot;glm&quot;, &quot;earth&quot;, &quot;ranger&quot;)</code>.</p>
+</div>
+<div id="setup" class="section level2">
+<h2>Setup</h2>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(dma)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="fu">library</span>(mma)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">data</span>(weight_behavior)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>weight_behavior <span class="ot">&lt;-</span> <span class="fu">na.omit</span>(weight_behavior)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">2345</span>)</span></code></pre></div>
+<p>The shift functions define the modified treatment policies — here,
+static interventions setting everyone to <code>sports = 1</code>
+(control) or <code>sports = 2</code> (treated):</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>d0 <span class="ot">&lt;-</span> \(data, trt) <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="dv">1</span>, <span class="fu">nrow</span>(data)), <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;1&quot;</span>, <span class="st">&quot;2&quot;</span>))</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>d1 <span class="ot">&lt;-</span> \(data, trt) <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="dv">2</span>, <span class="fu">nrow</span>(data)), <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;1&quot;</span>, <span class="st">&quot;2&quot;</span>))</span></code></pre></div>
+</div>
+<div id="natural-effects" class="section level2">
+<h2>Natural Effects</h2>
+<p>Natural direct and indirect effects (Pearl, 2001). The NDE captures
+the effect of shifting treatment while holding the mediator at its
+natural value under the control regime; the NIE captures the remaining
+indirect pathway.</p>
+<p>No mediator-outcome confounders (<code>moc</code>) are needed — the
+cross-world counterfactual is handled by the nested pseudo-outcome
+cascade.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">dma</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">data =</span> weight_behavior,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">trt =</span> <span class="st">&quot;sports&quot;</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="st">&quot;bmi&quot;</span>,</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">covar =</span> <span class="fu">c</span>(<span class="st">&quot;age&quot;</span>, <span class="st">&quot;sex&quot;</span>, <span class="st">&quot;tvhours&quot;</span>),</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">mediators =</span> <span class="fu">c</span>(<span class="st">&quot;exercises&quot;</span>, <span class="st">&quot;overweigh&quot;</span>),</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  <span class="at">d0 =</span> d0, <span class="at">d1 =</span> d1,</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>  <span class="at">effect =</span> <span class="st">&quot;N&quot;</span>,</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">dma_control</span>(<span class="at">crossfit_folds =</span> <span class="dv">1</span><span class="dt">L</span>, <span class="at">num_epochs =</span> <span class="dv">100</span><span class="dt">L</span>, <span class="at">riesz_epochs =</span> <span class="dv">20</span><span class="dt">L</span>)</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>)</span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; ✔ Fitting outcome regressions... 1/1 folds [40.8s]</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; ✔ Computing alpha n density ratios... 1/1 folds [40.5s]</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; ══ Results `dma()` ═════════════════════════════════════════</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt; ── Direct Effect</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt;       Estimate: -0.043</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.18</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: -0.396, 0.31</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt; ── Indirect Effect</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.835</span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.232</span></span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: 0.379, 1.29</span></span>
+<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="co">#&gt; ── Average Treatment Effect</span></span>
+<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.792</span></span>
+<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.305</span></span>
+<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: 0.195, 1.389</span></span></code></pre></div>
+<p><strong>Comparison with crumble:</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th>Estimand</th>
+<th align="center">dma</th>
+<th align="center">crumble</th>
+<th align="center">Difference</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>ATE</td>
+<td align="center">0.792 (0.305)</td>
+<td align="center">1.029 (0.280)</td>
+<td align="center">-0.237</td>
+</tr>
+<tr class="even">
+<td>NDE</td>
+<td align="center">-0.043 (0.180)</td>
+<td align="center">0.017 (0.172)</td>
+<td align="center">-0.060</td>
+</tr>
+<tr class="odd">
+<td>NIE</td>
+<td align="center">0.835 (0.232)</td>
+<td align="center">1.012 (0.218)</td>
+<td align="center">-0.177</td>
+</tr>
+</tbody>
+</table>
+<p>Both packages agree on the qualitative story: a small, insignificant
+direct effect and a large, significant indirect effect. Point estimates
+differ modestly — expected since engression (distributional regression)
+and mlr3superlearner (ensemble of classical learners) are fundamentally
+different learning strategies, and both runs use only 1 cross-fitting
+fold.</p>
+</div>
+<div id="organic-effects" class="section level2">
+<h2>Organic Effects</h2>
+<p>Organic direct and indirect effects (Lok, 2015). Unlike natural
+effects, organic effects use the <em>observed</em> mediator distribution
+rather than a counterfactual one, avoiding cross-world assumptions.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">dma</span>(</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="at">data =</span> weight_behavior,</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="at">trt =</span> <span class="st">&quot;sports&quot;</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="st">&quot;bmi&quot;</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">covar =</span> <span class="fu">c</span>(<span class="st">&quot;age&quot;</span>, <span class="st">&quot;sex&quot;</span>, <span class="st">&quot;tvhours&quot;</span>),</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="at">mediators =</span> <span class="fu">c</span>(<span class="st">&quot;exercises&quot;</span>, <span class="st">&quot;overweigh&quot;</span>),</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="at">d0 =</span> d0, <span class="at">d1 =</span> d1,</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="at">effect =</span> <span class="st">&quot;O&quot;</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">dma_control</span>(<span class="at">crossfit_folds =</span> <span class="dv">1</span><span class="dt">L</span>, <span class="at">num_epochs =</span> <span class="dv">100</span><span class="dt">L</span>, <span class="at">riesz_epochs =</span> <span class="dv">20</span><span class="dt">L</span>)</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>)</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; ✔ Fitting outcome regressions... 1/1 folds [41s]</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; ✔ Computing alpha n density ratios... 1/1 folds [40.1s]</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt; ══ Results `dma()` ═════════════════════════════════════════</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt; ── Organic Direct Effect</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt;       Estimate: -0.085</span></span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.177</span></span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: -0.431, 0.262</span></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="co">#&gt; ── Organic Indirect Effect</span></span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.898</span></span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.233</span></span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: 0.442, 1.354</span></span></code></pre></div>
+<p><strong>Comparison with crumble:</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th>Estimand</th>
+<th align="center">dma</th>
+<th align="center">crumble</th>
+<th align="center">Difference</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>ODE</td>
+<td align="center">-0.085 (0.177)</td>
+<td align="center">0.011 (0.177)</td>
+<td align="center">-0.096</td>
+</tr>
+<tr class="even">
+<td>OIE</td>
+<td align="center">0.898 (0.233)</td>
+<td align="center">1.028 (0.223)</td>
+<td align="center">-0.130</td>
+</tr>
+</tbody>
+</table>
+<p>Again, qualitative agreement — insignificant direct effect,
+significant indirect effect — with comparable standard errors.</p>
+</div>
+<div id="randomized-interventional-effects" class="section level2">
+<h2>Randomized Interventional Effects</h2>
+<p>Randomized interventional direct and indirect effects (Vansteelandt
+&amp; Daniel, 2017). These effects are identified even in the presence
+of mediator-outcome confounders (<code>moc</code>) affected by
+treatment, at the cost of a weaker decomposition that uses a
+<em>randomized</em> mediator draw from the population.</p>
+<p>The <code>moc</code> argument specifies intermediate confounders —
+here, <code>snack</code>. Estimation requires Z’ permutation via
+Rsymphony.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">dma</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="at">data =</span> weight_behavior,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">trt =</span> <span class="st">&quot;sports&quot;</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="st">&quot;bmi&quot;</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">covar =</span> <span class="fu">c</span>(<span class="st">&quot;age&quot;</span>, <span class="st">&quot;sex&quot;</span>, <span class="st">&quot;tvhours&quot;</span>),</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="at">mediators =</span> <span class="fu">c</span>(<span class="st">&quot;exercises&quot;</span>, <span class="st">&quot;overweigh&quot;</span>),</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="at">moc =</span> <span class="st">&quot;snack&quot;</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>  <span class="at">d0 =</span> d0, <span class="at">d1 =</span> d1,</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="at">effect =</span> <span class="st">&quot;RI&quot;</span>,</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">dma_control</span>(<span class="at">crossfit_folds =</span> <span class="dv">1</span><span class="dt">L</span>, <span class="at">num_epochs =</span> <span class="dv">100</span><span class="dt">L</span>, <span class="at">riesz_epochs =</span> <span class="dv">20</span><span class="dt">L</span>)</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>)</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt; ✔ Permuting Z-prime variables... 1/1 tasks [2.1s]</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co">#&gt; ✔ Fitting outcome regressions... 1/1 folds [1m 0.7s]</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt; ✔ Computing alpha r density ratios... 1/1 folds [1m 16.3s]</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt; ══ Results `dma()` ═════════════════════════════════════════</span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; ── Randomized Direct Effect</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.014</span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.182</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: -0.343, 0.371</span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="co">#&gt; ── Randomized Indirect Effect</span></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.951</span></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.245</span></span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: 0.47, 1.431</span></span></code></pre></div>
+<p><strong>Comparison with crumble:</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th>Estimand</th>
+<th align="center">dma</th>
+<th align="center">crumble</th>
+<th align="center">Difference</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>RDE</td>
+<td align="center">0.014 (0.182)</td>
+<td align="center">0.016 (0.177)</td>
+<td align="center">-0.002</td>
+</tr>
+<tr class="even">
+<td>RIE</td>
+<td align="center">0.951 (0.245)</td>
+<td align="center">1.030 (0.230)</td>
+<td align="center">-0.079</td>
+</tr>
+</tbody>
+</table>
+<p>The closest agreement of any effect type — direct effects are nearly
+identical, and indirect effects are within one standard error.</p>
+</div>
+<div id="recanting-twins" class="section level2">
+<h2>Recanting Twins</h2>
+<p>Recanting twins pathway decomposition (Vo et al., 2024). This is the
+finest decomposition, separating the total effect into four causal
+pathways plus an intermediate confounding term:</p>
+<ul>
+<li><strong>A → Y</strong>: direct effect bypassing mediators and
+confounders</li>
+<li><strong>A → Z → Y</strong>: effect through mediator-outcome
+confounders only</li>
+<li><strong>A → Z → M → Y</strong>: effect through confounders then
+mediators</li>
+<li><strong>A → M → Y</strong>: effect through mediators only</li>
+<li><strong>Intermediate confounding</strong>: residual from
+confounders</li>
+</ul>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">dma</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="at">data =</span> weight_behavior,</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">trt =</span> <span class="st">&quot;sports&quot;</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="st">&quot;bmi&quot;</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  <span class="at">covar =</span> <span class="fu">c</span>(<span class="st">&quot;age&quot;</span>, <span class="st">&quot;sex&quot;</span>, <span class="st">&quot;tvhours&quot;</span>),</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  <span class="at">mediators =</span> <span class="fu">c</span>(<span class="st">&quot;exercises&quot;</span>, <span class="st">&quot;overweigh&quot;</span>),</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="at">moc =</span> <span class="st">&quot;snack&quot;</span>,</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="at">d0 =</span> d0, <span class="at">d1 =</span> d1,</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="at">effect =</span> <span class="st">&quot;RT&quot;</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">dma_control</span>(<span class="at">crossfit_folds =</span> <span class="dv">1</span><span class="dt">L</span>, <span class="at">num_epochs =</span> <span class="dv">100</span><span class="dt">L</span>, <span class="at">riesz_epochs =</span> <span class="dv">20</span><span class="dt">L</span>)</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>)</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co">#&gt; ✔ Permuting Z-prime variables... 1/1 tasks [2.1s]</span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co">#&gt; ✔ Fitting outcome regressions... 1/1 folds [1m 46.8s]</span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co">#&gt; ✔ Computing alpha n density ratios... 1/1 folds [1m 17.1s]</span></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a><span class="co">#&gt; ✔ Computing alpha r density ratios... 1/1 folds [1m 17.5s]</span></span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="co">#&gt; ══ Results `dma()` ═════════════════════════════════════════</span></span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a><span class="co">#&gt; ── Path: A -&gt; Y</span></span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.241</span></span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.191</span></span>
+<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: -0.133, 0.615</span></span>
+<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a><span class="co">#&gt; ── Path: A -&gt; Z -&gt; Y</span></span>
+<span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.074</span></span>
+<span id="cb7-26"><a href="#cb7-26" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.02</span></span>
+<span id="cb7-27"><a href="#cb7-27" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: 0.035, 0.113</span></span>
+<span id="cb7-28"><a href="#cb7-28" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb7-29"><a href="#cb7-29" tabindex="-1"></a><span class="co">#&gt; ── Path: A -&gt; Z -&gt; M -&gt; Y</span></span>
+<span id="cb7-30"><a href="#cb7-30" tabindex="-1"></a><span class="co">#&gt;       Estimate: -0.019</span></span>
+<span id="cb7-31"><a href="#cb7-31" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.019</span></span>
+<span id="cb7-32"><a href="#cb7-32" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: -0.055, 0.018</span></span>
+<span id="cb7-33"><a href="#cb7-33" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb7-34"><a href="#cb7-34" tabindex="-1"></a><span class="co">#&gt; ── Path: A -&gt; M -&gt; Y</span></span>
+<span id="cb7-35"><a href="#cb7-35" tabindex="-1"></a><span class="co">#&gt;       Estimate: 0.866</span></span>
+<span id="cb7-36"><a href="#cb7-36" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.232</span></span>
+<span id="cb7-37"><a href="#cb7-37" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: 0.412, 1.32</span></span>
+<span id="cb7-38"><a href="#cb7-38" tabindex="-1"></a><span class="co">#&gt;</span></span>
+<span id="cb7-39"><a href="#cb7-39" tabindex="-1"></a><span class="co">#&gt; ── Intermediate Confounding</span></span>
+<span id="cb7-40"><a href="#cb7-40" tabindex="-1"></a><span class="co">#&gt;       Estimate: -0.208</span></span>
+<span id="cb7-41"><a href="#cb7-41" tabindex="-1"></a><span class="co">#&gt;     Std. error: 0.052</span></span>
+<span id="cb7-42"><a href="#cb7-42" tabindex="-1"></a><span class="co">#&gt; 95% Conf. int.: -0.311, -0.106</span></span></code></pre></div>
+<p><strong>Comparison with crumble:</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th>Pathway</th>
+<th align="center">dma</th>
+<th align="center">crumble</th>
+<th align="center">Difference</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A → Y</td>
+<td align="center">0.241 (0.191)</td>
+<td align="center">0.037 (0.184)</td>
+<td align="center">0.204</td>
+</tr>
+<tr class="even">
+<td>A → Z → Y</td>
+<td align="center">0.074 (0.020)</td>
+<td align="center">-0.020 (0.024)</td>
+<td align="center">0.094</td>
+</tr>
+<tr class="odd">
+<td>A → Z → M → Y</td>
+<td align="center">-0.019 (0.019)</td>
+<td align="center">-0.001 (0.010)</td>
+<td align="center">-0.018</td>
+</tr>
+<tr class="even">
+<td>A → M → Y</td>
+<td align="center">0.866 (0.232)</td>
+<td align="center">1.051 (0.216)</td>
+<td align="center">-0.185</td>
+</tr>
+<tr class="odd">
+<td>Intermediate conf.</td>
+<td align="center">-0.208 (0.052)</td>
+<td align="center">-0.013 (0.026)</td>
+<td align="center">-0.195</td>
+</tr>
+</tbody>
+</table>
+<p>The dominant pathway (A → M → Y) is consistent across both packages.
+The finer decomposition shows more variation between learners, which is
+expected — the RT decomposition involves the most nuisance parameters
+(both natural and randomized cascades), so differences in the outcome
+regression learner compound through more levels. Both packages agree
+that the A → M → Y path is by far the largest and most significant
+component.</p>
+</div>
+<div id="summary" class="section level2">
+<h2>Summary</h2>
+<table>
+<caption>Point estimates on weight_behavior data (crossfit_folds =
+1)</caption>
+<thead>
+<tr class="header">
+<th align="left">Effect</th>
+<th align="left">Estimand</th>
+<th align="right">dma</th>
+<th align="right">crumble</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Natural</td>
+<td align="left">ATE</td>
+<td align="right">0.792</td>
+<td align="right">1.029</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">NDE</td>
+<td align="right">-0.043</td>
+<td align="right">0.017</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">NIE</td>
+<td align="right">0.835</td>
+<td align="right">1.012</td>
+</tr>
+<tr class="even">
+<td align="left">Organic</td>
+<td align="left">ODE</td>
+<td align="right">-0.085</td>
+<td align="right">0.011</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">OIE</td>
+<td align="right">0.898</td>
+<td align="right">1.028</td>
+</tr>
+<tr class="even">
+<td align="left">Rand. Interventional</td>
+<td align="left">RDE</td>
+<td align="right">0.014</td>
+<td align="right">0.016</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">RIE</td>
+<td align="right">0.951</td>
+<td align="right">1.030</td>
+</tr>
+<tr class="even">
+<td align="left">Recanting Twins</td>
+<td align="left">A-&gt;Y</td>
+<td align="right">0.241</td>
+<td align="right">0.037</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">A-&gt;Z-&gt;Y</td>
+<td align="right">0.074</td>
+<td align="right">-0.020</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">A-&gt;Z-&gt;M-&gt;Y</td>
+<td align="right">-0.019</td>
+<td align="right">-0.001</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">A-&gt;M-&gt;Y</td>
+<td align="right">0.866</td>
+<td align="right">1.051</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Int. Conf.</td>
+<td align="right">-0.208</td>
+<td align="right">-0.013</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">ATE</td>
+<td align="right">0.954</td>
+<td align="right">1.054</td>
+</tr>
+</tbody>
+</table>
+<p>Both packages target the same estimands using the same semiparametric
+framework, but differ in how nuisance parameters are estimated:</p>
+<ul>
+<li><strong>crumble</strong> uses <code>mlr3superlearner</code> — an
+ensemble of classical ML learners (mean, GLM, MARS, random forest) — for
+outcome regressions</li>
+<li><strong>dma</strong> uses <code>engression</code> — a single neural
+network trained with the energy score to learn the full conditional
+distribution</li>
+</ul>
+<p>Qualitative conclusions are identical across all four effect types: a
+large, significant indirect effect operating through the mediators
+(<code>exercises</code>, <code>overweigh</code>), with a small and
+generally insignificant direct effect. Point estimate differences
+reflect the different learners and the inherent variability from using a
+single cross-fitting fold.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Liu, R., Williams, N., Rudolph, K., &amp; Díaz, I. (2024). General
+Mediation Analysis. arXiv:2408.14620.</li>
+<li>Lok, J. J. (2015). Defining and estimating causal direct and
+indirect effects when setting the mediator to specific values is not
+feasible. <em>Statistics in Medicine</em>.</li>
+<li>Pearl, J. (2001). Direct and indirect effects. <em>Proceedings of
+UAI</em>.</li>
+<li>Shen, X. &amp; Meinshausen, N. (2024). Engression: Extrapolation
+through the Lens of Distributional Regression. <em>JMLR</em>.</li>
+<li>Vansteelandt, S. &amp; Daniel, R. M. (2017). Interventional effects
+for mediation analysis with multiple mediators.
+<em>Epidemiology</em>.</li>
+<li>Vo, T.-T. et al. (2024). An axiomatic approach to the decomposition
+of treatment effects using mediators. arXiv:2401.07574.</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
