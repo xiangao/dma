@@ -15,7 +15,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   fig.width = 7,
-  fig.height = 4.5
+  fig.height = 5
 )
 library(ggplot2)
 ```
@@ -30,6 +30,58 @@ plan(multisession)
 
 Energy regression (`engression`) learns the **full conditional distribution** $P(Y|X)$, whereas standard mediation tools like `crumble` (via `SuperLearner`) typically target only the **conditional mean** $E[Y|X]$. This vignette demonstrates scenarios where this difference matters for obtaining correct causal estimates, comparing `dma` against `crumble` with a GLM learner on each scenario.
 
+### Mediation decomposition
+
+In natural effects mediation, we decompose the ATE into:
+
+- **NDE** (Natural Direct Effect): $E[Y(1, M(0))] - E[Y(0, M(0))]$ — effect of treatment holding mediator at control level
+- **NIE** (Natural Indirect Effect): $E[Y(1, M(1))] - E[Y(1, M(0))]$ — effect of treatment through the mediator only
+- **ATE**: $E[Y(1, M(1))] - E[Y(0, M(0))]$ = NDE + NIE
+
+Standard methods estimate these as **mean** contrasts. But the full potential outcome *distributions* $P(Y(a, M(a')))$ reveal much more: how treatment reshapes the entire outcome distribution, not just its center.
+
+```{r plot-helper, include=FALSE}
+# Helper to plot all four potential outcome distributions
+plot_po_distributions <- function(Y00, Y11, Y10, Y01, title, subtitle = NULL, xlim = NULL) {
+  df <- rbind(
+    data.frame(Y = Y00, PO = "Y(0, M(0))"),
+    data.frame(Y = Y11, PO = "Y(1, M(1))"),
+    data.frame(Y = Y10, PO = "Y(1, M(0))"),
+    data.frame(Y = Y01, PO = "Y(0, M(1))")
+  )
+  df$PO <- factor(df$PO, levels = c("Y(0, M(0))", "Y(1, M(0))", "Y(0, M(1))", "Y(1, M(1))"))
+
+  p <- ggplot(df, aes(x = Y, color = PO)) +
+    geom_density(linewidth = 0.9) +
+    scale_color_manual(values = c(
+      "Y(0, M(0))" = "#377eb8",
+      "Y(1, M(1))" = "#e41a1c",
+      "Y(1, M(0))" = "#984ea3",
+      "Y(0, M(1))" = "#ff7f00"
+    )) +
+    labs(title = title, subtitle = subtitle, x = "Outcome (Y)", y = "Density", color = "Potential Outcome") +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+
+  if (!is.null(xlim)) p <- p + coord_cartesian(xlim = xlim)
+  p
+}
+
+# Helper to print mean decomposition table
+print_decomposition <- function(Y00, Y11, Y10, Y01) {
+  ate  <- mean(Y11) - mean(Y00)
+  nde  <- mean(Y10) - mean(Y00)
+  nie  <- mean(Y11) - mean(Y10)
+  data.frame(
+    Effect = c("ATE = E[Y(1,M(1))] - E[Y(0,M(0))]",
+               "NDE = E[Y(1,M(0))] - E[Y(0,M(0))]",
+               "NIE = E[Y(1,M(1))] - E[Y(1,M(0))]"),
+    Value = round(c(ate, nde, nie), 3)
+  )
+}
+```
+
+
 ## 1. The Bimodal Mediator Challenge
 
 In many settings, a behavior (the mediator) is bimodal: individuals are either "high" or "low," but rarely at the average.
@@ -38,11 +90,9 @@ In many settings, a behavior (the mediator) is bimodal: individuals are either "
 
 - $A=0 \implies M \sim N(0, 0.5^2)$
 - $A=1 \implies M$ is a mixture: $50\% \sim N(-2, 0.5^2)$ and $50\% \sim N(2, 0.5^2)$
-- $Y = M^2 + \epsilon$
-- **Note**: $E[M|A=1] = 0$, the same as $E[M|A=0]$
-- **True Indirect Effect**: $E[M^2|A=1] - E[M^2|A=0] = (2^2 + 0.5^2) - (0^2 + 0.5^2) = \mathbf{4.0}$
-
-A mean-based learner sees that the mean of $M$ is zero for both groups and concludes there is zero indirect effect. Engression captures the bimodal structure and recovers the true effect.
+- $Y = M^2 + \epsilon$ (no direct effect of $A$ on $Y$)
+- **Note**: $E[M|A=1] = 0 = E[M|A=0]$, so mean-based methods see no mediator shift
+- **True NIE**: $E[M^2|A=1] - E[M^2|A=0] = 4.25 - 0.25 = \mathbf{4.0}$
 
 ```{r eval=FALSE}
 library(dma)
@@ -79,36 +129,35 @@ res_crumble <- crumble(
 |----------|:-----:|:-----------:|:-------------:|
 | NIE      | 4.0   | 4.992       | -0.240        |
 
-**Result**: `crumble` (using GLM) sees that the mean of $M$ is zero for both groups and estimates NIE $\approx 0$. `dma` captures the bimodal structure and recovers the true effect.
-
-### Oracle counterfactual distributions
+### Distributional decomposition
 
 ```{r bimodal-oracle}
 set.seed(42)
 n_o <- 10000
+eps <- rnorm(n_o, 0, 0.5)
 
-# Y(0, M(0)): M ~ N(0, 0.5)
-M0 <- rnorm(n_o, 0, 0.5)
-Y0 <- M0^2 + rnorm(n_o, 0, 0.5)
+# Draw mediators under each regime
+M_ctrl <- rnorm(n_o, 0, 0.5)                    # M(0)
+M_trt  <- ifelse(runif(n_o) > 0.5,              # M(1)
+                 rnorm(n_o, -2, 0.5), rnorm(n_o, 2, 0.5))
 
-# Y(1, M(1)): M ~ 50% N(-2, 0.5) + 50% N(2, 0.5)
-M1 <- ifelse(runif(n_o) > 0.5, rnorm(n_o, -2, 0.5), rnorm(n_o, 2, 0.5))
-Y1 <- M1^2 + rnorm(n_o, 0, 0.5)
+# Four potential outcomes: Y = M^2 + eps (no direct A effect)
+Y00 <- M_ctrl^2 + eps   # Y(0, M(0))
+Y11 <- M_trt^2  + eps   # Y(1, M(1))
+Y10 <- M_ctrl^2 + eps   # Y(1, M(0)) = Y(0, M(0)) since no direct effect
+Y01 <- M_trt^2  + eps   # Y(0, M(1)) = Y(1, M(1)) since no direct effect
 
-oracle_1 <- rbind(
-  data.frame(Y = Y0, Regime = "Y(0, M(0))"),
-  data.frame(Y = Y1, Regime = "Y(1, M(1))")
-)
-
-ggplot(oracle_1, aes(x = Y, fill = Regime)) +
-  geom_density(alpha = 0.4) +
-  labs(title = "1. Bimodal Mediator: Counterfactual Outcome Distributions",
-       subtitle = "Y = M²: treatment creates bimodal outcomes despite E[M|A=0] = E[M|A=1] = 0",
-       x = "Outcome (Y)", y = "Density") +
-  theme_minimal()
+knitr::kable(print_decomposition(Y00, Y11, Y10, Y01), align = "lr")
 ```
 
-The bimodal mediator under treatment creates a right-shifted, heavy-tailed outcome distribution centered around $M^2 \approx 4$, while the control outcome is concentrated near zero. Mean-based methods miss this entirely because $E[M]$ doesn't change.
+```{r bimodal-plot, fig.height=5}
+plot_po_distributions(Y00, Y11, Y10, Y01,
+  title = "1. Bimodal Mediator: Potential Outcome Distributions",
+  subtitle = "Y = M² (no direct effect): ATE = NIE, NDE = 0. Mean-based methods see NIE ≈ 0.")
+```
+
+**Key insight**: Because $A$ has no direct effect on $Y$, $Y(1,M(0)) = Y(0,M(0))$ and $Y(0,M(1)) = Y(1,M(1))$ — the NDE is zero and the entire ATE flows through the mediator. The treated and indirect-only distributions are identical: a heavy right tail from $M^2 \approx 4$. A mean-based learner that only sees $E[M|A=0] = E[M|A=1] = 0$ concludes NIE $\approx 0$.
+
 
 ## 2. Heteroskedasticity (Variance as Signal)
 
@@ -116,10 +165,9 @@ Treatment often changes the **variance** or **spread** of a behavior without shi
 
 **Scenario**:
 
-- $M|A=0 \sim N(0, 1^2)$
-- $M|A=1 \sim N(0, 3^2)$
-- $Y = M^2 + \epsilon$
-- **True Indirect Effect**: $E[M^2|A=1] - E[M^2|A=0] = 3^2 - 1^2 = \mathbf{8.0}$
+- $M|A=0 \sim N(0, 1^2)$, $M|A=1 \sim N(0, 3^2)$
+- $Y = M^2 + \epsilon$ (no direct effect)
+- **True NIE**: $E[M^2|A=1] - E[M^2|A=0] = 9 - 1 = \mathbf{8.0}$
 
 ```{r eval=FALSE}
 set.seed(123)
@@ -149,35 +197,34 @@ res_crumble_het <- crumble(
 |----------|:-----:|:-----------:|:-------------:|
 | NIE      | 8.0   | 7.721       | -0.137        |
 
-### Oracle counterfactual distributions
+### Distributional decomposition
 
 ```{r heterosk-oracle}
 set.seed(42)
 n_o <- 10000
+eps <- rnorm(n_o, 0, 0.5)
 
-# Y(0): M ~ N(0, 1), Y = M²
-M0 <- rnorm(n_o, 0, 1)
-Y0 <- M0^2 + rnorm(n_o, 0, 0.5)
+M_ctrl <- rnorm(n_o, 0, 1)   # M(0): sd = 1
+M_trt  <- rnorm(n_o, 0, 3)   # M(1): sd = 3
 
-# Y(1): M ~ N(0, 3), Y = M²
-M1 <- rnorm(n_o, 0, 3)
-Y1 <- M1^2 + rnorm(n_o, 0, 0.5)
+# Y = M² + eps (no direct effect)
+Y00 <- M_ctrl^2 + eps
+Y11 <- M_trt^2  + eps
+Y10 <- M_ctrl^2 + eps  # = Y00
+Y01 <- M_trt^2  + eps  # = Y11
 
-oracle_2 <- rbind(
-  data.frame(Y = Y0, Regime = "Y(0, M(0)): sd(M) = 1"),
-  data.frame(Y = Y1, Regime = "Y(1, M(1)): sd(M) = 3")
-)
-
-ggplot(oracle_2, aes(x = Y, fill = Regime)) +
-  geom_density(alpha = 0.4) +
-  coord_cartesian(xlim = c(-2, 30)) +
-  labs(title = "2. Heteroskedasticity: Counterfactual Outcome Distributions",
-       subtitle = "Y = M²: treatment triples sd(M), creating a much heavier right tail",
-       x = "Outcome (Y)", y = "Density") +
-  theme_minimal()
+knitr::kable(print_decomposition(Y00, Y11, Y10, Y01), align = "lr")
 ```
 
-Treatment doesn't shift the mean of $M$ at all — it triples the variance. Since $Y = M^2$, the treated outcome distribution develops an extremely heavy right tail ($E[Y|A=1] = 9$ vs $E[Y|A=0] = 1$). A mean-based approach that only models $E[M|A]$ sees no difference.
+```{r heterosk-plot, fig.height=5}
+plot_po_distributions(Y00, Y11, Y10, Y01,
+  title = "2. Heteroskedasticity: Potential Outcome Distributions",
+  subtitle = "Y = M²: tripled sd(M) creates extreme right tail. ATE = NIE = 8, NDE = 0",
+  xlim = c(-2, 40))
+```
+
+**Key insight**: Treatment triples $\text{sd}(M)$ without changing $E[M]$. Since $E[M^2] = \text{Var}(M) + E[M]^2$, the entire effect operates through the variance channel. The treated outcome distribution has a massively heavier right tail. Mean-based methods cannot detect this.
+
 
 ## 3. Robustness to Heavy-Tailed Noise (Outliers)
 
@@ -186,8 +233,8 @@ Energy regression is more robust to extreme outliers than standard mean squared 
 **Scenario**:
 
 - Confounder $W \sim \text{Cauchy}(0, 1)$ (clipped to $[-20, 20]$)
-- $Y$ and $M$ are linear in $A$ and $W$
-- **True Indirect Effect**: $\mathbf{1.0}$
+- $M = A + 0.5W + \epsilon_M$, $Y = A + M + 0.5W + \epsilon_Y$
+- **True NDE**: $\mathbf{1.0}$, **True NIE**: $\mathbf{1.0}$, **True ATE**: $\mathbf{2.0}$
 
 ```{r eval=FALSE}
 set.seed(123)
@@ -219,37 +266,38 @@ res_crumble_heavy <- crumble(
 |----------|:-----:|:-----------:|:-------------:|
 | NIE      | 1.0   | 1.067       | 1.049         |
 
-### Oracle counterfactual distributions
+### Distributional decomposition
 
 ```{r heavy-oracle}
 set.seed(42)
 n_o <- 10000
 W_o <- rcauchy(n_o)
 W_o <- pmax(pmin(W_o, 20), -20)
+eps_m <- rnorm(n_o)
+eps_y <- rnorm(n_o)
 
-# Y(0): A=0, M = 0.5W + eps, Y = M + 0.5W + eps
-M0 <- 0.5 * W_o + rnorm(n_o)
-Y0 <- M0 + 0.5 * W_o + rnorm(n_o)
+# M(0) and M(1)
+M_ctrl <- 0 + 0.5 * W_o + eps_m       # A=0
+M_trt  <- 1 + 0.5 * W_o + eps_m       # A=1
 
-# Y(1): A=1, M = 1 + 0.5W + eps, Y = 1 + M + 0.5W + eps
-M1 <- 1 + 0.5 * W_o + rnorm(n_o)
-Y1 <- 1 + M1 + 0.5 * W_o + rnorm(n_o)
+# Y(a, M(a')) = a + M(a') + 0.5W + eps_y
+Y00 <- 0 + M_ctrl + 0.5 * W_o + eps_y  # Y(0, M(0))
+Y11 <- 1 + M_trt  + 0.5 * W_o + eps_y  # Y(1, M(1))
+Y10 <- 1 + M_ctrl + 0.5 * W_o + eps_y  # Y(1, M(0)) — direct effect
+Y01 <- 0 + M_trt  + 0.5 * W_o + eps_y  # Y(0, M(1)) — indirect effect
 
-oracle_3 <- rbind(
-  data.frame(Y = Y0, Regime = "Y(0, M(0))"),
-  data.frame(Y = Y1, Regime = "Y(1, M(1))")
-)
-
-ggplot(oracle_3, aes(x = Y, fill = Regime)) +
-  geom_density(alpha = 0.4) +
-  coord_cartesian(xlim = c(-20, 25)) +
-  labs(title = "3. Heavy Tails: Counterfactual Outcome Distributions",
-       subtitle = "Cauchy confounders create heavy tails; both methods handle this case",
-       x = "Outcome (Y)", y = "Density") +
-  theme_minimal()
+knitr::kable(print_decomposition(Y00, Y11, Y10, Y01), align = "lr")
 ```
 
-With Cauchy confounders, both outcome distributions have very heavy tails. The treatment shifts the location by 2 (direct + indirect). Both dma and crumble handle this linear case well — the challenge here is robustness to outliers, not distributional complexity.
+```{r heavy-plot, fig.height=5}
+plot_po_distributions(Y00, Y11, Y10, Y01,
+  title = "3. Heavy Tails: Potential Outcome Distributions",
+  subtitle = "Linear DGP with Cauchy confounders: NDE = NIE = 1, all distributions heavy-tailed",
+  xlim = c(-25, 30))
+```
+
+**Key insight**: Here all four distributions are visible as distinct curves. The NDE shifts from $Y(0,M(0))$ to $Y(1,M(0))$ by 1 (direct $A$ effect), and the NIE shifts from $Y(1,M(0))$ to $Y(1,M(1))$ by 1 (mediator pathway). The heavy Cauchy tails don't change the decomposition — both methods handle this linear case well.
+
 
 ## 4. Extreme Treatment Shifts (Extrapolation)
 
@@ -257,7 +305,9 @@ Engression maintains the structural relationship of the data better than many ML
 
 **Scenario**: Shift $A$ by +5 units (standard deviation is 1).
 
-- **True ATE**: $\mathbf{5.0}$
+- $M = A + \epsilon_M$, $Y = M + \epsilon_Y$ (all indirect, no direct $A$ effect on $Y$)
+- $d_0(A) = A$, $d_1(A) = A + 5$
+- **True ATE = NIE**: $\mathbf{5.0}$, **True NDE**: $\mathbf{0.0}$
 
 ```{r eval=FALSE}
 set.seed(123)
@@ -291,46 +341,47 @@ res_crumble_extrap <- crumble(
 |----------|:-----:|:-----------:|:-------------:|
 | ATE      | 5.0   | 4.582       | 9.814         |
 
-### Oracle counterfactual distributions
+### Distributional decomposition
 
 ```{r extrap-oracle}
 set.seed(42)
 n_o <- 10000
 A_o <- rnorm(n_o)
+eps_m <- rnorm(n_o, 0, 0.5)
+eps_y <- rnorm(n_o, 0, 0.5)
 
-# Y(d0): A unchanged, M = A + eps, Y = M + eps
-M_d0 <- A_o + rnorm(n_o, 0, 0.5)
-Y_d0 <- M_d0 + rnorm(n_o, 0, 0.5)
+# M under each regime
+M_d0 <- A_o + eps_m           # d0: M(A)
+M_d1 <- (A_o + 5) + eps_m     # d1: M(A+5)
 
-# Y(d1): A shifted by +5, M = (A+5) + eps, Y = M + eps
-M_d1 <- (A_o + 5) + rnorm(n_o, 0, 0.5)
-Y_d1 <- M_d1 + rnorm(n_o, 0, 0.5)
+# Y = M + eps_y (no direct A effect on Y)
+Y00 <- M_d0 + eps_y   # Y(d0, M(d0))
+Y11 <- M_d1 + eps_y   # Y(d1, M(d1))
+Y10 <- M_d0 + eps_y   # Y(d1, M(d0)) = Y(d0, M(d0)) since no direct effect
+Y01 <- M_d1 + eps_y   # Y(d0, M(d1)) = Y(d1, M(d1)) since no direct effect
 
-oracle_4 <- rbind(
-  data.frame(Y = Y_d0, Regime = "Y(d0): A unchanged"),
-  data.frame(Y = Y_d1, Regime = "Y(d1): A + 5")
-)
-
-ggplot(oracle_4, aes(x = Y, fill = Regime)) +
-  geom_density(alpha = 0.4) +
-  labs(title = "4. Extrapolation: Counterfactual Outcome Distributions",
-       subtitle = "Shifting A by +5 SD moves the entire outcome distribution",
-       x = "Outcome (Y)", y = "Density") +
-  theme_minimal()
+knitr::kable(print_decomposition(Y00, Y11, Y10, Y01), align = "lr")
 ```
 
-The +5 SD shift moves the outcome distribution by exactly 5 units. The challenge is that the shifted regime lies far outside the training data. Engression's StoNet architecture extrapolates the structural relationship $Y = M + \epsilon$, $M = A + \epsilon$ correctly, while crumble's GLM nearly doubles the true effect.
+```{r extrap-plot, fig.height=5}
+plot_po_distributions(Y00, Y11, Y10, Y01,
+  title = "4. Extrapolation: Potential Outcome Distributions",
+  subtitle = "Y = M + eps, M = A + eps: +5 shift is entirely indirect (NIE = 5, NDE = 0)")
+```
+
+**Key insight**: The +5 shift moves the entire distribution by 5 units through the mediator. Since there's no direct $A$ effect on $Y$, the NDE is zero and $Y(1,M(0)) = Y(0,M(0))$. The challenge is extrapolation: the shifted regime is 5 SDs outside training range. Engression preserves the linear structural relationship; crumble's GLM nearly doubles the effect to 9.8.
+
 
 ## Summary
 
-| Scenario | Estimand | Truth | dma | crumble (GLM) | Why engression helps |
-|----------|----------|:-----:|:-----------:|:-------------:|----------------------|
-| Bimodal mediator | NIE | 4.0 | 4.992 | -0.240 | Captures distributional shift, not just mean |
-| Heteroskedasticity | NIE | 8.0 | 7.721 | -0.137 | Detects variance change as causal pathway |
-| Heavy-tailed confounders | NIE | 1.0 | 1.067 | 1.049 | Energy score is more robust than MSE |
-| Extrapolation (+5 SD) | ATE | 5.0 | 4.582 | 9.814 | StoNet architecture extrapolates better |
+| Scenario | NDE (Truth) | NIE (Truth) | ATE (Truth) | dma | crumble | Key distributional feature |
+|----------|:-----------:|:-----------:|:-----------:|:---:|:-------:|---------------------------|
+| Bimodal mediator | 0.0 | 4.0 | 4.0 | 4.99 | -0.24 | Bimodal $Y$ under treatment |
+| Heteroskedasticity | 0.0 | 8.0 | 8.0 | 7.72 | -0.14 | Heavy right tail from variance channel |
+| Heavy-tailed | 1.0 | 1.0 | 2.0 | 1.07 | 1.05 | Cauchy tails (both methods OK) |
+| Extrapolation | 0.0 | 5.0 | 5.0 | 4.58 | 9.81 | Distribution shifted 5 SDs out of range |
 
-In each scenario, engression's ability to learn the full conditional distribution --- rather than just the conditional mean --- translates to more accurate causal effect estimates. The advantages are most dramatic when the treatment operates through distributional features (variance, modality) rather than simple location shifts.
+The potential outcome distributions above show what mean-based estimates compress into a single number. In scenarios 1–2, the treatment operates *entirely* through the mediator ($\text{NDE} = 0$), but the mechanism is distributional — changing variance or modality rather than the mean. These are precisely the cases where `dma`'s distributional regression recovers effects that conditional-mean methods miss.
 
 ## References
 
