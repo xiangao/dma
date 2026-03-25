@@ -54,6 +54,55 @@ ggplot(data, aes(x = M, fill = factor(A))) +
   theme_minimal()
 ```
 
+### Oracle Counterfactual Outcome Distributions
+
+Since we know the DGP, we can compute the true potential outcome distributions under each treatment regime. This is what `plot_counterfactual_density()` aims to recover from data.
+
+Under $do(A=a)$: $M \sim N(a, 0.25)$ and $Y = M^2 + W + \epsilon$, so the outcome distribution changes not just in location but in **shape** — the squared mediator introduces right-skew when $A=1$.
+
+```{r oracle-outcomes}
+set.seed(42)
+n_oracle <- 10000
+W_o <- rnorm(n_oracle)
+eps_o <- rnorm(n_oracle, 0, 0.5)
+
+# Y(0): do(A=0), M ~ N(0, 0.25)
+M0 <- rnorm(n_oracle, 0, 0.5)
+Y0 <- M0^2 + W_o + eps_o
+
+# Y(1): do(A=1), M ~ N(1, 0.25)
+M1 <- rnorm(n_oracle, 1, 0.5)
+Y1 <- M1^2 + W_o + eps_o
+
+# Y(1, M(0)): direct effect — treat but keep mediator at control level
+Y10 <- M0^2 + W_o + eps_o  # same as Y0 (no direct effect of A on Y here)
+
+# Y(0, M(1)): indirect effect — don't treat but shift mediator as if treated
+Y01 <- M1^2 + W_o + eps_o  # same as Y1
+
+oracle_df <- rbind(
+  data.frame(Y = Y0, Regime = "Y(0, M(0)): Control"),
+  data.frame(Y = Y1, Regime = "Y(1, M(1)): Treated"),
+  data.frame(Y = Y01, Regime = "Y(0, M(1)): Indirect only")
+)
+
+ggplot(oracle_df, aes(x = Y, fill = Regime)) +
+  geom_density(alpha = 0.4) +
+  labs(title = "Oracle Counterfactual Outcome Distributions",
+       subtitle = "Y = M² + W + eps: treatment shifts distribution shape, not just location",
+       x = "Outcome (Y)", y = "Density") +
+  theme_minimal()
+```
+
+Key observations:
+
+- **Y(0, M(0))** (control): concentrated near zero, since $M \approx 0$ and $M^2 \approx 0$
+- **Y(1, M(1))** (treated): shifted right with heavier right tail, since $M \approx 1$ and $M^2 \approx 1$
+- **Y(0, M(1))** (indirect only): identical to treated here because $A$ only affects $Y$ through $M$ — the entire treatment effect is indirect
+- The **NIE mean** is $E[Y(1,M(1))] - E[Y(1,M(0))] \approx$ `r round(mean(Y1) - mean(Y0), 2)`, but this single number hides the distributional shift
+
+This is the target that `plot_counterfactual_density()` recovers from the trained `dma` model, without knowing the true DGP.
+
 ## Fitting dma
 
 We fit the `dma` model. Note that we use a sufficient number of epochs to allow the neural networks to learn the squared relationship.
