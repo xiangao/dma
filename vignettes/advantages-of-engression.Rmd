@@ -13,8 +13,11 @@ knitr::opts_chunk$set(
   comment = "#>",
   cache = FALSE,
   message = FALSE,
-  warning = FALSE
+  warning = FALSE,
+  fig.width = 7,
+  fig.height = 4.5
 )
+library(ggplot2)
 ```
 
 ```{r parallel, eval=FALSE}
@@ -78,6 +81,35 @@ res_crumble <- crumble(
 
 **Result**: `crumble` (using GLM) sees that the mean of $M$ is zero for both groups and estimates NIE $\approx 0$. `dma` captures the bimodal structure and recovers the true effect.
 
+### Oracle counterfactual distributions
+
+```{r bimodal-oracle}
+set.seed(42)
+n_o <- 10000
+
+# Y(0, M(0)): M ~ N(0, 0.5)
+M0 <- rnorm(n_o, 0, 0.5)
+Y0 <- M0^2 + rnorm(n_o, 0, 0.5)
+
+# Y(1, M(1)): M ~ 50% N(-2, 0.5) + 50% N(2, 0.5)
+M1 <- ifelse(runif(n_o) > 0.5, rnorm(n_o, -2, 0.5), rnorm(n_o, 2, 0.5))
+Y1 <- M1^2 + rnorm(n_o, 0, 0.5)
+
+oracle_1 <- rbind(
+  data.frame(Y = Y0, Regime = "Y(0, M(0))"),
+  data.frame(Y = Y1, Regime = "Y(1, M(1))")
+)
+
+ggplot(oracle_1, aes(x = Y, fill = Regime)) +
+  geom_density(alpha = 0.4) +
+  labs(title = "1. Bimodal Mediator: Counterfactual Outcome Distributions",
+       subtitle = "Y = M²: treatment creates bimodal outcomes despite E[M|A=0] = E[M|A=1] = 0",
+       x = "Outcome (Y)", y = "Density") +
+  theme_minimal()
+```
+
+The bimodal mediator under treatment creates a right-shifted, heavy-tailed outcome distribution centered around $M^2 \approx 4$, while the control outcome is concentrated near zero. Mean-based methods miss this entirely because $E[M]$ doesn't change.
+
 ## 2. Heteroskedasticity (Variance as Signal)
 
 Treatment often changes the **variance** or **spread** of a behavior without shifting its mean.
@@ -116,6 +148,36 @@ res_crumble_het <- crumble(
 | Estimand | Truth | dma | crumble (GLM) |
 |----------|:-----:|:-----------:|:-------------:|
 | NIE      | 8.0   | 7.721       | -0.137        |
+
+### Oracle counterfactual distributions
+
+```{r heterosk-oracle}
+set.seed(42)
+n_o <- 10000
+
+# Y(0): M ~ N(0, 1), Y = M²
+M0 <- rnorm(n_o, 0, 1)
+Y0 <- M0^2 + rnorm(n_o, 0, 0.5)
+
+# Y(1): M ~ N(0, 3), Y = M²
+M1 <- rnorm(n_o, 0, 3)
+Y1 <- M1^2 + rnorm(n_o, 0, 0.5)
+
+oracle_2 <- rbind(
+  data.frame(Y = Y0, Regime = "Y(0, M(0)): sd(M) = 1"),
+  data.frame(Y = Y1, Regime = "Y(1, M(1)): sd(M) = 3")
+)
+
+ggplot(oracle_2, aes(x = Y, fill = Regime)) +
+  geom_density(alpha = 0.4) +
+  coord_cartesian(xlim = c(-2, 30)) +
+  labs(title = "2. Heteroskedasticity: Counterfactual Outcome Distributions",
+       subtitle = "Y = M²: treatment triples sd(M), creating a much heavier right tail",
+       x = "Outcome (Y)", y = "Density") +
+  theme_minimal()
+```
+
+Treatment doesn't shift the mean of $M$ at all — it triples the variance. Since $Y = M^2$, the treated outcome distribution develops an extremely heavy right tail ($E[Y|A=1] = 9$ vs $E[Y|A=0] = 1$). A mean-based approach that only models $E[M|A]$ sees no difference.
 
 ## 3. Robustness to Heavy-Tailed Noise (Outliers)
 
@@ -157,6 +219,38 @@ res_crumble_heavy <- crumble(
 |----------|:-----:|:-----------:|:-------------:|
 | NIE      | 1.0   | 1.067       | 1.049         |
 
+### Oracle counterfactual distributions
+
+```{r heavy-oracle}
+set.seed(42)
+n_o <- 10000
+W_o <- rcauchy(n_o)
+W_o <- pmax(pmin(W_o, 20), -20)
+
+# Y(0): A=0, M = 0.5W + eps, Y = M + 0.5W + eps
+M0 <- 0.5 * W_o + rnorm(n_o)
+Y0 <- M0 + 0.5 * W_o + rnorm(n_o)
+
+# Y(1): A=1, M = 1 + 0.5W + eps, Y = 1 + M + 0.5W + eps
+M1 <- 1 + 0.5 * W_o + rnorm(n_o)
+Y1 <- 1 + M1 + 0.5 * W_o + rnorm(n_o)
+
+oracle_3 <- rbind(
+  data.frame(Y = Y0, Regime = "Y(0, M(0))"),
+  data.frame(Y = Y1, Regime = "Y(1, M(1))")
+)
+
+ggplot(oracle_3, aes(x = Y, fill = Regime)) +
+  geom_density(alpha = 0.4) +
+  coord_cartesian(xlim = c(-20, 25)) +
+  labs(title = "3. Heavy Tails: Counterfactual Outcome Distributions",
+       subtitle = "Cauchy confounders create heavy tails; both methods handle this case",
+       x = "Outcome (Y)", y = "Density") +
+  theme_minimal()
+```
+
+With Cauchy confounders, both outcome distributions have very heavy tails. The treatment shifts the location by 2 (direct + indirect). Both dma and crumble handle this linear case well — the challenge here is robustness to outliers, not distributional complexity.
+
 ## 4. Extreme Treatment Shifts (Extrapolation)
 
 Engression maintains the structural relationship of the data better than many ML learners when shifting far outside the training range.
@@ -196,6 +290,36 @@ res_crumble_extrap <- crumble(
 | Estimand | Truth | dma | crumble (GLM) |
 |----------|:-----:|:-----------:|:-------------:|
 | ATE      | 5.0   | 4.582       | 9.814         |
+
+### Oracle counterfactual distributions
+
+```{r extrap-oracle}
+set.seed(42)
+n_o <- 10000
+A_o <- rnorm(n_o)
+
+# Y(d0): A unchanged, M = A + eps, Y = M + eps
+M_d0 <- A_o + rnorm(n_o, 0, 0.5)
+Y_d0 <- M_d0 + rnorm(n_o, 0, 0.5)
+
+# Y(d1): A shifted by +5, M = (A+5) + eps, Y = M + eps
+M_d1 <- (A_o + 5) + rnorm(n_o, 0, 0.5)
+Y_d1 <- M_d1 + rnorm(n_o, 0, 0.5)
+
+oracle_4 <- rbind(
+  data.frame(Y = Y_d0, Regime = "Y(d0): A unchanged"),
+  data.frame(Y = Y_d1, Regime = "Y(d1): A + 5")
+)
+
+ggplot(oracle_4, aes(x = Y, fill = Regime)) +
+  geom_density(alpha = 0.4) +
+  labs(title = "4. Extrapolation: Counterfactual Outcome Distributions",
+       subtitle = "Shifting A by +5 SD moves the entire outcome distribution",
+       x = "Outcome (Y)", y = "Density") +
+  theme_minimal()
+```
+
+The +5 SD shift moves the outcome distribution by exactly 5 units. The challenge is that the shifted regime lies far outside the training data. Engression's StoNet architecture extrapolates the structural relationship $Y = M + \epsilon$, $M = A + \epsilon$ correctly, while crumble's GLM nearly doubles the true effect.
 
 ## Summary
 
