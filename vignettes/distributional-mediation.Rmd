@@ -1,0 +1,115 @@
+---
+title: "Distributional Mediation Analysis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Distributional Mediation Analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+library(dma)
+library(ggplot2)
+
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Beyond the Mean: Why Distributional Mediation?
+
+Traditional mediation analysis focuses on decomposing the **Average Treatment Effect (ATE)** into the **Natural Direct Effect (NDE)** and the **Natural Indirect Effect (NIE)**. While these provide a useful summary, they only describe the "center" of the causal response.
+
+Causal mechanisms often shift the **shape**, **variance**, or **modality** of an outcome without necessarily shifting its mean. Energy Regression (`engression`) allows us to recover the entire counterfactual distribution $P(Y | do(A=d))$, giving us a much richer picture of the causal process.
+
+## Simulation: The Multi-Modal Response
+
+Consider a scenario where a treatment affects an outcome through a mediator that has a non-linear, squaring effect. Standard linear models or even non-linear mean models might capture the average shift but miss that the treatment introduces extreme values or multi-modality.
+
+### Data Generating Process
+
+- $A \in \{0, 1\}$ (Binary Treatment)
+- $M | A \sim N(A, 0.5^2)$ (Mediator shifts its mean with treatment)
+- $Y = M^2 + W + \epsilon$ (Outcome is a squared function of the mediator)
+- $W \sim N(0, 1)$ (Confounder)
+
+```{r dgp}
+set.seed(42)
+n <- 2000
+W <- rnorm(n)
+A <- rbinom(n, 1, 0.5)
+M <- rnorm(n, A, 0.5)
+Y <- M^2 + W + rnorm(n, 0, 0.5)
+data <- data.frame(A, M, Y, W)
+
+ggplot(data, aes(x = M, fill = factor(A))) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Mediator Distribution by Treatment", fill = "Treatment (A)") +
+  theme_minimal()
+```
+
+## Fitting dma
+
+We fit the `dma` model. Note that we use a sufficient number of epochs to allow the neural networks to learn the squared relationship.
+
+```{r fit, eval=FALSE}
+res <- dma(
+  data = data, trt = "A", outcome = "Y", mediators = "M", covar = "W",
+  d0 = \(data, trt) 0, d1 = \(data, trt) 1,
+  effect = "N",
+  control = dma_control(
+    crossfit_folds = 2L,
+    num_epochs = 50L,
+    batch_size = 128L,
+    riesz_epochs = 10L
+  )
+)
+
+print(res)
+```
+
+## Visualizing Results
+
+### Coefficient Plot
+
+The `plot()` method shows point estimates and confidence intervals for all estimated effects:
+
+```{r coef-plot, eval=FALSE}
+plot(res)
+```
+
+### Counterfactual Densities
+
+Because `dma` saves the underlying generative models, we can visualize the full counterfactual densities of the outcome $Y$ under different treatment regimes using `plot_counterfactual_density()`.
+
+Under the Natural Indirect Effect decomposition, we care about:
+
+1. $P(Y(1, M(1)))$: The distribution if everyone was treated.
+2. $P(Y(0, M(0)))$: The distribution if everyone was in the control group.
+
+```{r distributional-plot, eval=FALSE}
+plot_counterfactual_density(res, n_samples = 2)
+```
+
+### Analysis
+
+In this example, $Y$ is a function of $M^2$:
+
+- When $A=0$, $M \approx 0 \implies Y \approx 0$ (the distribution is centered near 0).
+- When $A=1$, $M \approx 1 \implies Y \approx 1$ (the distribution shifts and its shape changes).
+
+Traditional methods report the average shift (NIE), but `dma` lets you see how the entire probability mass of the outcome moves — invaluable for understanding treatment mechanisms in non-linear systems.
+
+## Summary
+
+The `dma` package provides:
+
+1. **Valid Causal Estimates**: Doubly-robust estimates of mean effects (NDE, NIE, ATE) with observation weights propagated through all nuisance estimation.
+2. **Distributional Insight**: Full counterfactual density visualization via saved `engression` models.
+3. **Flexibility**: Robustness to non-linearities and non-Gaussian noise that would violate the assumptions of standard mediation software.
