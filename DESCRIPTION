@@ -20,6 +20,7 @@ LazyData: true
 Depends:
     R (>= 4.0.0)
 RoxygenNote: 7.3.2
+VignetteBuilder: knitr
 Imports:
     checkmate,
     Matrix,
@@ -35,5 +36,9 @@ Imports:
     ife (>= 0.2.1)
 Suggests:
     testthat (>= 3.0.0),
-    Rsymphony
+    Rsymphony,
+    crumble,
+    ggplot2,
+    knitr,
+    rmarkdown
 Config/testthat/edition: 3

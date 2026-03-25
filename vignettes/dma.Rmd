@@ -13,8 +13,11 @@ knitr::opts_chunk$set(
   comment = "#>",
   cache = FALSE,
   message = FALSE,
-  warning = FALSE
+  warning = FALSE,
+  fig.width = 7,
+  fig.height = 5
 )
+library(ggplot2)
 ```
 
 ```{r parallel, eval=FALSE}
@@ -241,6 +244,145 @@ known DGP where true effects are calculable.
 $M = 0.5A + 0.3W + \varepsilon_M$, $Y = A + 0.8M + 0.4W + \varepsilon_Y$.
 
 True natural effects: NDE = 1.0, NIE = $0.8 \times 0.5 = 0.4$, ATE = 1.4.
+
+### Oracle Potential Outcome Distributions
+
+Since we know the DGP, we can compute the four counterfactual distributions under each combination of treatment assignment and mediator regime. Although this linear DGP shifts only location (not shape), the distributional view confirms the decomposition: $Y(1,M(0))$ and $Y(0,M(1))$ isolate the direct and indirect channels.
+
+```{r oracle-distributions}
+set.seed(42)
+n_oracle <- 10000
+W_o <- rnorm(n_oracle)
+eps_M <- rnorm(n_oracle, sd = 0.5)
+eps_Y <- rnorm(n_oracle, sd = 0.5)
+
+# Potential mediators
+M0 <- 0.5 * 0 + 0.3 * W_o + eps_M  # M(0)
+M1 <- 0.5 * 1 + 0.3 * W_o + eps_M  # M(1)
+
+# Four potential outcomes Y(a, M(a'))
+Y00 <- 0 + 0.8 * M0 + 0.4 * W_o + eps_Y  # Y(0, M(0))
+Y11 <- 1 + 0.8 * M1 + 0.4 * W_o + eps_Y  # Y(1, M(1))
+Y10 <- 1 + 0.8 * M0 + 0.4 * W_o + eps_Y  # Y(1, M(0)) — direct effect
+Y01 <- 0 + 0.8 * M1 + 0.4 * W_o + eps_Y  # Y(0, M(1)) — indirect only
+
+# Plot
+df <- rbind(
+  data.frame(Y = Y00, PO = "Y(0, M(0))"),
+  data.frame(Y = Y11, PO = "Y(1, M(1))"),
+  data.frame(Y = Y10, PO = "Y(1, M(0))"),
+  data.frame(Y = Y01, PO = "Y(0, M(1))")
+)
+df$PO <- factor(df$PO, levels = c("Y(0, M(0))", "Y(1, M(0))", "Y(0, M(1))", "Y(1, M(1))"))
+
+ggplot(df, aes(x = Y, color = PO)) +
+  geom_density(linewidth = 0.9) +
+  scale_color_manual(values = c(
+    "Y(0, M(0))" = "#377eb8", "Y(1, M(1))" = "#e41a1c",
+    "Y(1, M(0))" = "#984ea3", "Y(0, M(1))" = "#ff7f00"
+  )) +
+  labs(title = "Oracle Potential Outcome Distributions",
+       subtitle = "Linear DGP: Y = A + 0.8M + 0.4W + eps (NDE = 1.0, NIE = 0.4, ATE = 1.4)",
+       x = "Outcome (Y)", y = "Density", color = "Potential Outcome") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+```{r decomposition-table}
+# Mean decomposition
+data.frame(
+  Effect = c("ATE = E[Y(1,M(1))] - E[Y(0,M(0))]",
+             "NDE = E[Y(1,M(0))] - E[Y(0,M(0))]",
+             "NIE = E[Y(1,M(1))] - E[Y(1,M(0))]"),
+  Oracle = round(c(mean(Y11) - mean(Y00), mean(Y10) - mean(Y00), mean(Y11) - mean(Y10)), 3),
+  True = c(1.4, 1.0, 0.4)
+)
+```
+
+In this linear case, the four densities are parallel shifts — the indirect effect (orange vs blue) shifts by 0.4, and the direct effect (purple vs blue) shifts by 1.0. Non-linear DGPs (see the *advantages-of-engression* vignette) produce shape changes that only distributional methods can capture.
+
+### Estimated vs Oracle Distributions
+
+We fit `dma` on a single dataset from this DGP and use the Riesz representer weights to estimate all three mediation counterfactual distributions. Unlike simple treatment shifting, the weighted approach correctly handles the cross-world counterfactual $Y(1, M(0))$ by reweighting the observed data via the learned density ratios.
+
+```{r estimated-vs-oracle, cache=FALSE, fig.height=6}
+# Generate one dataset for fitting
+set.seed(2024)
+n_fit <- 1000
+W_f <- rnorm(n_fit)
+A_f <- rbinom(n_fit, 1, plogis(0.5 * W_f))
+M_f <- 0.5 * A_f + 0.3 * W_f + rnorm(n_fit, sd = 0.5)
+Y_f <- A_f + 0.8 * M_f + 0.4 * W_f + rnorm(n_fit, sd = 0.5)
+fit_data <- data.frame(W = W_f, A = A_f, M = M_f, Y = Y_f)
+
+# Fit dma
+res_fit <- dma(
+  data = fit_data, trt = "A", outcome = "Y", mediators = "M", covar = "W",
+  d0 = function(data, trt) 0, d1 = function(data, trt) 1,
+  effect = "N",
+  control = dma_control(crossfit_folds = 2L, num_epochs = 100L,
+    riesz_epochs = 30L, noise_dim = 5L, hidden_dim = 50L, num_layer = 2L)
+)
+
+# Weighted counterfactual densities (all 3 mediation regimes)
+plot_counterfactual_density(res_fit, use_weights = TRUE)
+```
+
+```{r oracle-comparison, cache=FALSE, fig.height=6}
+# Overlay weighted estimates with oracle for all 3 regimes
+W_est <- res_fit$alpha_n[["alpha3"]]
+regime_map <- c("000" = "Y(0, M(0))", "100" = "Y(1, M(0))", "111" = "Y(1, M(1))")
+
+df_est <- do.call(rbind, lapply(colnames(W_est), function(nm) {
+  w <- pmax(W_est[, nm], 0)
+  w <- w / sum(w) * length(w)
+  data.frame(Y = fit_data$Y, Weight = w, Regime = regime_map[[nm]])
+}))
+
+df_oracle <- rbind(
+  data.frame(Y = Y00, Regime = "Y(0, M(0))"),
+  data.frame(Y = Y10, Regime = "Y(1, M(0))"),
+  data.frame(Y = Y11, Regime = "Y(1, M(1))")
+)
+
+ggplot() +
+  geom_density(data = df_oracle, aes(x = Y, color = Regime, linetype = "Oracle"), linewidth = 0.9) +
+  geom_density(data = df_est, aes(x = Y, color = Regime, weight = Weight, linetype = "Estimated"), linewidth = 0.9) +
+  scale_color_manual(values = c(
+    "Y(0, M(0))" = "#377eb8", "Y(1, M(0))" = "#984ea3", "Y(1, M(1))" = "#e41a1c"
+  )) +
+  scale_linetype_manual(values = c("Oracle" = "solid", "Estimated" = "dashed")) +
+  labs(title = "Estimated vs Oracle Counterfactual Distributions",
+       subtitle = "Solid = oracle (n=10,000), Dashed = weighted via Riesz representers (n=1,000)",
+       x = "Outcome (Y)", y = "Density", linetype = "Source") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+```{r estimated-comparison}
+# Compare estimated vs oracle means for all 3 regimes
+est_means <- sapply(colnames(W_est), function(nm) {
+  w <- pmax(W_est[, nm], 0)
+  w <- w / sum(w)
+  sum(w * fit_data$Y)
+})
+names(est_means) <- regime_map[names(est_means)]
+
+data.frame(
+  Regime = names(est_means),
+  Oracle = round(c(mean(Y00), mean(Y10), mean(Y11)), 3),
+  Estimated = round(est_means, 3)
+)
+```
+
+```{r estimated-point-estimates}
+# Point estimates from the dma model
+tidy(res_fit)
+```
+
+Unlike the no-direct-effect DGP in the *distributional-mediation* vignette, here all three counterfactual distributions are distinct: $Y(1, M(0))$ (purple) sits between control and treated, reflecting the direct effect of $A$ on $Y$ while holding $M$ at its control distribution. The NDE shifts from blue to purple; the NIE shifts from purple to red.
+
+### Monte Carlo Study
 
 ```{r simulation, cache=FALSE}
 set.seed(123)

@@ -83,7 +83,7 @@ Y01 <- M1^2 + W_o + eps_o  # same as Y1
 oracle_df <- rbind(
   data.frame(Y = Y0, Regime = "Y(0, M(0)): Control"),
   data.frame(Y = Y1, Regime = "Y(1, M(1)): Treated"),
-  data.frame(Y = Y01, Regime = "Y(0, M(1)): Indirect only")
+  data.frame(Y = Y10, Regime = "Y(1, M(0)): Direct only")
 )
 
 ggplot(oracle_df, aes(x = Y, fill = Regime)) +
@@ -98,16 +98,16 @@ Key observations:
 
 - **Y(0, M(0))** (control): concentrated near zero, since $M \approx 0$ and $M^2 \approx 0$
 - **Y(1, M(1))** (treated): shifted right with heavier right tail, since $M \approx 1$ and $M^2 \approx 1$
-- **Y(0, M(1))** (indirect only): identical to treated here because $A$ only affects $Y$ through $M$ — the entire treatment effect is indirect
-- The **NIE mean** is $E[Y(1,M(1))] - E[Y(1,M(0))] \approx$ `r round(mean(Y1) - mean(Y0), 2)`, but this single number hides the distributional shift
+- **Y(1, M(0))** (direct only) overlaps exactly with control — because $A$ does not enter the outcome equation ($Y = M^2 + W + \epsilon$), treating while holding $M$ at its control level changes nothing. The NDE is zero.
+- Since NDE = 0, the entire treatment effect is indirect: **NIE** $= E[Y(1,M(1))] - E[Y(1,M(0))] \approx$ `r round(mean(Y1) - mean(Y10), 2)`, equal to the ATE. But this single number hides the distributional shift from a symmetric, concentrated distribution to a right-skewed one.
 
-This is the target that `plot_counterfactual_density()` recovers from the trained `dma` model, without knowing the true DGP.
+Below we fit `dma` and use `plot_counterfactual_density()` to recover this from data, without knowing the true DGP.
 
 ## Fitting dma
 
 We fit the `dma` model. Note that we use a sufficient number of epochs to allow the neural networks to learn the squared relationship.
 
-```{r fit, eval=FALSE}
+```{r fit, cache=FALSE}
 res <- dma(
   data = data, trt = "A", outcome = "Y", mediators = "M", covar = "W",
   d0 = \(data, trt) 0, d1 = \(data, trt) 1,
@@ -129,29 +129,77 @@ print(res)
 
 The `plot()` method shows point estimates and confidence intervals for all estimated effects:
 
-```{r coef-plot, eval=FALSE}
+```{r coef-plot, cache=FALSE}
 plot(res)
 ```
 
-### Counterfactual Densities
+### Marginal Counterfactual Densities
 
-Because `dma` saves the underlying generative models, we can visualize the full counterfactual densities of the outcome $Y$ under different treatment regimes using `plot_counterfactual_density()`.
+The default `plot_counterfactual_density()` shifts the treatment variable and predicts Y from the trained engression models. This shows the marginal outcome distributions $P(Y \mid do(A=0))$ and $P(Y \mid do(A=1))$:
 
-Under the Natural Indirect Effect decomposition, we care about:
+```{r marginal-plot, cache=FALSE}
+plot_counterfactual_density(res, n_samples = 5)
+```
 
-1. $P(Y(1, M(1)))$: The distribution if everyone was treated.
-2. $P(Y(0, M(0)))$: The distribution if everyone was in the control group.
+### Mediation Counterfactual Densities
 
-```{r distributional-plot, eval=FALSE}
-plot_counterfactual_density(res, n_samples = 2)
+For mediation analysis, we care about the **cross-world** counterfactuals that define the NDE and NIE:
+
+- $Y(0, M(0))$: outcome under control
+- $Y(1, M(0))$: outcome under treatment but mediator at control level (defines NDE)
+- $Y(1, M(1))$: outcome under full treatment (NIE = difference from $Y(1,M(0))$)
+
+Passing `use_weights = TRUE` uses the learned Riesz representers (density ratios from the mediation cascade) to reweight the observed $Y$ to each counterfactual regime. This is importance sampling: if $\alpha_k$ is the density ratio for regime $k$, then $E[\alpha_k \cdot f(Y)] = E[f(Y(k))]$.
+
+```{r weighted-plot, cache=FALSE}
+plot_counterfactual_density(res, use_weights = TRUE)
+```
+
+### Estimated vs Oracle Comparison
+
+We can overlay the weighted estimates with the oracle distributions for all three mediation regimes:
+
+```{r comparison-plot, cache=FALSE}
+# Weighted estimates
+alphas <- res$alpha_n
+W <- alphas[["alpha3"]]
+
+df_est <- do.call(rbind, lapply(colnames(W), function(nm) {
+  w <- pmax(W[, nm], 0)
+  w <- w / sum(w) * length(w)
+  data.frame(Y = data$Y, Weight = w, Regime = nm)
+}))
+
+regime_map <- c("000" = "Y(0, M(0))", "100" = "Y(1, M(0))", "111" = "Y(1, M(1))")
+df_est$Regime <- regime_map[df_est$Regime]
+
+df_oracle <- rbind(
+  data.frame(Y = Y0, Regime = "Y(0, M(0))"),
+  data.frame(Y = Y10, Regime = "Y(1, M(0))"),
+  data.frame(Y = Y1, Regime = "Y(1, M(1))")
+)
+
+ggplot() +
+  geom_density(data = df_oracle, aes(x = Y, color = Regime, linetype = "Oracle"), linewidth = 0.9) +
+  geom_density(data = df_est, aes(x = Y, color = Regime, weight = Weight, linetype = "Estimated"), linewidth = 0.9) +
+  scale_color_manual(values = c(
+    "Y(0, M(0))" = "#377eb8", "Y(1, M(0))" = "#984ea3", "Y(1, M(1))" = "#e41a1c"
+  )) +
+  scale_linetype_manual(values = c("Oracle" = "solid", "Estimated" = "dashed")) +
+  labs(title = "Estimated vs Oracle Counterfactual Distributions",
+       subtitle = "Solid = oracle (n=10,000), Dashed = weighted via Riesz representers (n=2,000)",
+       x = "Outcome (Y)", y = "Density", linetype = "Source") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
 ```
 
 ### Analysis
 
-In this example, $Y$ is a function of $M^2$:
+In this DGP with no direct effect ($Y = M^2 + W + \epsilon$):
 
-- When $A=0$, $M \approx 0 \implies Y \approx 0$ (the distribution is centered near 0).
-- When $A=1$, $M \approx 1 \implies Y \approx 1$ (the distribution shifts and its shape changes).
+- **Y(0, M(0))** and **Y(1, M(0))** overlap (NDE = 0) — treatment without shifting the mediator changes nothing.
+- **Y(1, M(1))** shifts right with a heavier tail — the entire effect operates through $M$, changing the **shape** of the outcome distribution, not just its mean.
+- The weighted density (dashed) recovers all three counterfactual distributions from the observed data using the Riesz representer cascade, including the cross-world $Y(1, M(0))$ that cannot be obtained by simple treatment shifting.
 
 Traditional methods report the average shift (NIE), but `dma` lets you see how the entire probability mass of the outcome moves — invaluable for understanding treatment mechanisms in non-linear systems.
 

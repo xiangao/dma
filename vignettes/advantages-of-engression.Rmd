@@ -167,7 +167,7 @@ Treatment often changes the **variance** or **spread** of a behavior without shi
 
 - $M|A=0 \sim N(0, 1^2)$, $M|A=1 \sim N(0, 3^2)$
 - $Y = M^2 + \epsilon$ (no direct effect)
-- **True NIE**: $E[M^2|A=1] - E[M^2|A=0] = 9 - 1 = \mathbf{8.0}$
+- **True NIE**: Since $E[M]=0$ in both regimes, $E[M^2] = \text{Var}(M)$, so NIE $= \text{Var}(M|A{=}1) - \text{Var}(M|A{=}0) = 3^2 - 1^2 = \mathbf{8.0}$
 
 ```{r eval=FALSE}
 set.seed(123)
@@ -176,6 +176,9 @@ A <- rbinom(n, 1, 0.5)
 M <- rnorm(n, 0, sd = ifelse(A == 0, 1, 3))
 Y <- M^2 + rnorm(n, 0, 0.5)
 data <- data.frame(A, M, Y, W = rnorm(n))
+
+d0 <- \(data, trt) 0
+d1 <- \(data, trt) 1
 
 # dma
 res_dma_het <- dma(
@@ -245,6 +248,9 @@ A <- rbinom(n, 1, plogis(0.1 * W))
 M <- A + 0.5 * W + rnorm(n)
 Y <- A + M + 0.5 * W + rnorm(n)
 data <- data.frame(A, M, Y, W)
+
+d0 <- \(data, trt) 0
+d1 <- \(data, trt) 1
 
 # dma
 res_dma_heavy <- dma(

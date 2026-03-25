@@ -79,8 +79,9 @@ recombine_theta <- function(x, folds) {
 		list(bs = bs, natural = natural)
 	}
 
-	list(theta_n = .f(lapply(x, \(x) x$n)),
-		 theta_r = .f(lapply(x, \(x) x$r)))
+	theta_n <- if (!is.null(x[[1]]$n)) .f(lapply(x, \(x) x$n)) else NULL
+	theta_r <- if (!is.null(x[[1]]$r)) .f(lapply(x, \(x) x$r)) else NULL
+	list(theta_n = theta_n, theta_r = theta_r)
 }
 
 recombine_alpha <- function(x, folds) {

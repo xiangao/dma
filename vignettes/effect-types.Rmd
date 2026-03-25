@@ -11,8 +11,13 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  cache = FALSE
+  cache = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 7,
+  fig.height = 5
 )
+library(ggplot2)
 ```
 
 ```{r parallel, eval=FALSE}
@@ -276,6 +281,256 @@ Both packages target the same estimands using the same semiparametric framework,
 - **dma** uses `engression` — a single neural network trained with the energy score to learn the full conditional distribution
 
 Qualitative conclusions are identical across all four effect types: a large, significant indirect effect operating through the mediators (`exercises`, `overweigh`), with a small and generally insignificant direct effect. Point estimate differences reflect the different learners and the inherent variability from using a single cross-fitting fold.
+
+## Distributional View: Oracle Potential Outcomes
+
+The weight_behavior results above are point estimates from real data. To illustrate what each effect type captures *distributionally*, we simulate from a DGP with a mediator-outcome confounder (Z) where all potential outcomes are known.
+
+**DGP**: $W \sim N(0,1)$, $A \in \{0,1\}$ equiprobable, $Z = 0.3A + 0.4W + \varepsilon_Z$ (mediator-outcome confounder), $M = 0.5A + 0.3W + 0.2Z + \varepsilon_M$, $Y = 0.8A + M^2 + 0.5Z + 0.4W + \varepsilon_Y$.
+
+The non-linear $M^2$ creates distributional effects that go beyond location shifts: the indirect pathway changes the *shape* of the outcome distribution.
+
+```{r oracle-setup}
+set.seed(42)
+n_oracle <- 10000
+W_o <- rnorm(n_oracle)
+eps_Z <- rnorm(n_oracle, sd = 0.3)
+eps_M <- rnorm(n_oracle, sd = 0.4)
+eps_Y <- rnorm(n_oracle, sd = 0.5)
+
+# Helper: potential outcomes given (a_Y, a_M, a_Z) for the treatment entering each equation
+po <- function(a_Y, a_M, a_Z) {
+  Z <- 0.3 * a_Z + 0.4 * W_o + eps_Z
+  M <- 0.5 * a_M + 0.3 * W_o + 0.2 * Z + eps_M
+  Y <- 0.8 * a_Y + M^2 + 0.5 * Z + 0.4 * W_o + eps_Y
+  list(Y = Y, M = M, Z = Z)
+}
+
+# Standard four counterfactuals (treatment enters all equations the same way)
+Y00 <- po(0, 0, 0)$Y  # Y(0, M(0), Z(0))
+Y11 <- po(1, 1, 1)$Y  # Y(1, M(1), Z(1))
+
+# Cross-world: Y(1, M(0)) — treat directly but mediator at control
+# Z also at control level (natural effects operate A→Y directly)
+Y10 <- po(1, 0, 0)$Y  # Y(1, M(0), Z(0))
+Y01 <- po(0, 1, 1)$Y  # Y(0, M(1), Z(1))
+
+# Plot helper
+plot_po <- function(Y00, Y11, Y10, Y01, title, subtitle = NULL) {
+  df <- rbind(
+    data.frame(Y = Y00, PO = "Y(0, M(0))"),
+    data.frame(Y = Y11, PO = "Y(1, M(1))"),
+    data.frame(Y = Y10, PO = "Y(1, M(0))"),
+    data.frame(Y = Y01, PO = "Y(0, M(1))")
+  )
+  df$PO <- factor(df$PO, levels = c("Y(0, M(0))", "Y(1, M(0))", "Y(0, M(1))", "Y(1, M(1))"))
+
+  ggplot(df, aes(x = Y, color = PO)) +
+    geom_density(linewidth = 0.9) +
+    scale_color_manual(values = c(
+      "Y(0, M(0))" = "#377eb8", "Y(1, M(1))" = "#e41a1c",
+      "Y(1, M(0))" = "#984ea3", "Y(0, M(1))" = "#ff7f00"
+    )) +
+    labs(title = title, subtitle = subtitle,
+         x = "Outcome (Y)", y = "Density", color = "Potential Outcome") +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+}
+
+decomp_table <- function(Y00, Y11, Y10, Y01) {
+  data.frame(
+    Effect = c("ATE", "NDE", "NIE"),
+    Value = round(c(mean(Y11) - mean(Y00), mean(Y10) - mean(Y00), mean(Y11) - mean(Y10)), 3)
+  )
+}
+```
+
+### Natural Effects (N)
+
+Natural effects use cross-world counterfactuals: NDE sets $A=1$ but keeps the mediator at its $A=0$ level; NIE shifts the mediator while holding the direct treatment.
+
+```{r natural-dist}
+plot_po(Y00, Y11, Y10, Y01,
+        title = "Natural Effects: Potential Outcome Distributions",
+        subtitle = "Y = 0.8A + M² + 0.5Z + 0.4W + eps — M² creates right-skew shift")
+decomp_table(Y00, Y11, Y10, Y01)
+```
+
+The gap between Y(0,M(0)) (blue) and Y(1,M(0)) (purple) is the NDE — a location shift from the direct $0.8A$ term. The gap between Y(1,M(0)) (purple) and Y(1,M(1)) (red) is the NIE — a shape-changing shift because $M^2$ introduces right-skew when $M$ is larger under treatment.
+
+### Organic Effects (O)
+
+Organic effects use the *observed* mediator distribution rather than a counterfactual one. The ODE compares treatment regimes holding $M$ at the observed (mixture) distribution; the OIE captures the remaining pathway.
+
+For visualization, the organic decomposition uses the same four potential outcomes, but the ODE/OIE partition differs conceptually — the ODE marginalizes over the observed $M$ distribution rather than conditioning on $M(0)$.
+
+```{r organic-dist}
+# Organic effects: compare treated vs control under observed M distribution
+# ODE: E[Y(1,M)] - E[Y(0,M)] where M is from the observed distribution
+# OIE: Total - ODE
+# Simulate observed M (proper mixture: draw A ~ Bernoulli(0.5) per unit)
+A_obs <- rbinom(n_oracle, 1, 0.5)
+Z_obs <- 0.3 * A_obs + 0.4 * W_o + eps_Z
+M_obs <- 0.5 * A_obs + 0.3 * W_o + 0.2 * Z_obs + eps_M
+
+Y_1_Mobs <- 0.8 * 1 + M_obs^2 + 0.5 * Z_obs + 0.4 * W_o + eps_Y
+Y_0_Mobs <- 0.8 * 0 + M_obs^2 + 0.5 * Z_obs + 0.4 * W_o + eps_Y
+
+df_o <- rbind(
+  data.frame(Y = Y00, PO = "Y(0, M(0)): Control"),
+  data.frame(Y = Y11, PO = "Y(1, M(1)): Treated"),
+  data.frame(Y = Y_1_Mobs, PO = "Y(1, M_obs): ODE reference"),
+  data.frame(Y = Y_0_Mobs, PO = "Y(0, M_obs): ODE baseline")
+)
+df_o$PO <- factor(df_o$PO, levels = c("Y(0, M(0)): Control", "Y(0, M_obs): ODE baseline",
+                                        "Y(1, M_obs): ODE reference", "Y(1, M(1)): Treated"))
+
+ggplot(df_o, aes(x = Y, color = PO)) +
+  geom_density(linewidth = 0.9) +
+  scale_color_manual(values = c(
+    "Y(0, M(0)): Control" = "#377eb8", "Y(1, M(1)): Treated" = "#e41a1c",
+    "Y(1, M_obs): ODE reference" = "#984ea3", "Y(0, M_obs): ODE baseline" = "#ff7f00"
+  )) +
+  labs(title = "Organic Effects: Potential Outcome Distributions",
+       subtitle = "ODE: gap between Y(1,M_obs) and Y(0,M_obs); OIE: remainder",
+       x = "Outcome (Y)", y = "Density", color = "Potential Outcome") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+data.frame(
+  Effect = c("ODE", "OIE"),
+  Value = round(c(mean(Y_1_Mobs) - mean(Y_0_Mobs),
+                  (mean(Y11) - mean(Y00)) - (mean(Y_1_Mobs) - mean(Y_0_Mobs))), 3)
+)
+```
+
+### Randomized Interventional Effects (RI)
+
+RI effects handle mediator-outcome confounders (Z) by drawing the mediator from a *randomized* population distribution rather than an individual's counterfactual. This avoids the cross-world assumption at the cost of a weaker decomposition.
+
+```{r ri-dist}
+# RI: draw M from population distribution under each treatment
+# RDE: E[Y(1, M_pop(0))] - E[Y(0, M_pop(0))]
+# RIE: E[Y(1, M_pop(1))] - E[Y(1, M_pop(0))]
+# M_pop(a) is drawn independently from the marginal distribution of M(a)
+
+# Shuffle mediator values to break individual-level pairing
+set.seed(99)
+M0_pop <- sample(po(0, 0, 0)$M)  # random draw from M(0) distribution
+M1_pop <- sample(po(1, 1, 1)$M)  # random draw from M(1) distribution
+Z0_pop <- sample(po(0, 0, 0)$Z)  # also shuffle Z to break M-Z confounding
+Z1_pop <- sample(po(1, 1, 1)$Z)
+
+Y_1_M0pop <- 0.8 * 1 + M0_pop^2 + 0.5 * Z0_pop + 0.4 * W_o + eps_Y
+Y_0_M0pop <- 0.8 * 0 + M0_pop^2 + 0.5 * Z0_pop + 0.4 * W_o + eps_Y
+Y_1_M1pop <- 0.8 * 1 + M1_pop^2 + 0.5 * Z1_pop + 0.4 * W_o + eps_Y
+
+df_ri <- rbind(
+  data.frame(Y = Y_0_M0pop, PO = "Y(0, M_pop(0))"),
+  data.frame(Y = Y_1_M0pop, PO = "Y(1, M_pop(0))"),
+  data.frame(Y = Y_1_M1pop, PO = "Y(1, M_pop(1))"),
+  data.frame(Y = Y11, PO = "Y(1, M(1)): Individual")
+)
+df_ri$PO <- factor(df_ri$PO, levels = c("Y(0, M_pop(0))", "Y(1, M_pop(0))",
+                                          "Y(1, M_pop(1))", "Y(1, M(1)): Individual"))
+
+ggplot(df_ri, aes(x = Y, color = PO)) +
+  geom_density(linewidth = 0.9) +
+  scale_color_manual(values = c(
+    "Y(0, M_pop(0))" = "#377eb8", "Y(1, M_pop(0))" = "#984ea3",
+    "Y(1, M_pop(1))" = "#e41a1c", "Y(1, M(1)): Individual" = "#999999"
+  )) +
+  labs(title = "Randomized Interventional Effects: Potential Outcome Distributions",
+       subtitle = "RDE: purple vs blue; RIE: red vs purple (gray = individual natural for reference)",
+       x = "Outcome (Y)", y = "Density", color = "Potential Outcome") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+data.frame(
+  Effect = c("RDE", "RIE", "ATE"),
+  Value = round(c(mean(Y_1_M0pop) - mean(Y_0_M0pop),
+                  mean(Y_1_M1pop) - mean(Y_1_M0pop),
+                  mean(Y_1_M1pop) - mean(Y_0_M0pop)), 3)
+)
+```
+
+The randomized mediator (drawn from the population distribution) washes out individual-level confounding between M and Z, which is why the RI distributions (solid colors) differ slightly from the natural ones. The gray line shows the individual-level Y(1,M(1)) for comparison.
+
+### Recanting Twins (RT)
+
+The RT decomposition separates the total effect into four causal pathways through all combinations of the mediator and mediator-outcome confounder channels:
+
+```{r rt-dist}
+# RT four pathways via (a_Y, a_Z, a_M) assignment:
+# A→Y direct: vary A entering Y only
+# A→Z→Y: vary A entering Z (and thus Y through Z), hold M at A=0
+# A→M→Y: vary A entering M only, hold Z at A=0
+# A→Z→M→Y: vary A entering both Z and M
+
+Y_base <- po(0, 0, 0)$Y  # baseline: all at control
+
+# A→Y: set a_Y=1, keep a_M=0, a_Z=0
+Y_AY <- po(1, 0, 0)$Y
+path_AY <- mean(Y_AY) - mean(Y_base)
+
+# A→Z→Y: set a_Z=1 (Z shifts, which feeds into M and Y), keep a_Y=0, a_M=0
+# But M also gets Z(1) input — we need to be careful about what "a_M=0" means here
+# For RT, we construct: a_Y=0, a_Z=1, a_M=0
+Z1_o <- 0.3 * 1 + 0.4 * W_o + eps_Z
+M_Z1 <- 0.5 * 0 + 0.3 * W_o + 0.2 * Z1_o + eps_M  # M with Z(1) but a_M=0
+Y_AZY <- 0.8 * 0 + M_Z1^2 + 0.5 * Z1_o + 0.4 * W_o + eps_Y
+path_AZY <- mean(Y_AZY) - mean(Y_base)
+
+# A→M→Y: set a_M=1, keep a_Y=0, a_Z=0
+Z0_o <- 0.3 * 0 + 0.4 * W_o + eps_Z
+M_A1 <- 0.5 * 1 + 0.3 * W_o + 0.2 * Z0_o + eps_M  # M with a_M=1 but Z(0)
+Y_AMY <- 0.8 * 0 + M_A1^2 + 0.5 * Z0_o + 0.4 * W_o + eps_Y
+path_AMY <- mean(Y_AMY) - mean(Y_base)
+
+# A→Z→M→Y: set a_Z=1, a_M=1, keep a_Y=0
+M_A1Z1 <- 0.5 * 1 + 0.3 * W_o + 0.2 * Z1_o + eps_M
+Y_AZMY <- 0.8 * 0 + M_A1Z1^2 + 0.5 * Z1_o + 0.4 * W_o + eps_Y
+path_AZMY <- mean(Y_AZMY) - mean(Y_base)
+
+# Plot key pathway distributions
+df_rt <- rbind(
+  data.frame(Y = Y_base, PO = "Baseline: Y(0,M(0),Z(0))"),
+  data.frame(Y = Y_AY, PO = "A->Y: Y(1,M(0),Z(0))"),
+  data.frame(Y = Y_AMY, PO = "A->M->Y: Y(0,M(1),Z(0))"),
+  data.frame(Y = Y11, PO = "Full treatment: Y(1,M(1),Z(1))")
+)
+df_rt$PO <- factor(df_rt$PO, levels = c("Baseline: Y(0,M(0),Z(0))",
+                                          "A->Y: Y(1,M(0),Z(0))",
+                                          "A->M->Y: Y(0,M(1),Z(0))",
+                                          "Full treatment: Y(1,M(1),Z(1))"))
+
+ggplot(df_rt, aes(x = Y, color = PO)) +
+  geom_density(linewidth = 0.9) +
+  scale_color_manual(values = c(
+    "Baseline: Y(0,M(0),Z(0))" = "#377eb8",
+    "A->Y: Y(1,M(0),Z(0))" = "#984ea3",
+    "A->M->Y: Y(0,M(1),Z(0))" = "#ff7f00",
+    "Full treatment: Y(1,M(1),Z(1))" = "#e41a1c"
+  )) +
+  labs(title = "Recanting Twins: Key Pathway Distributions",
+       subtitle = "Four pathways decompose the gap between blue (baseline) and red (full treatment)",
+       x = "Outcome (Y)", y = "Density", color = "Regime") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+data.frame(
+  Pathway = c("A->Y (direct)", "A->Z->Y (through Z only)",
+              "A->M->Y (through M only)", "A->Z->M->Y (through Z then M)",
+              "Sum of pathways", "ATE (total)"),
+  Value = round(c(path_AY, path_AZY, path_AMY, path_AZMY,
+                  path_AY + path_AZY + path_AMY + path_AZMY,
+                  mean(Y11) - mean(Y_base)), 3)
+)
+```
+
+The direct pathway (A→Y, purple vs blue) creates a location shift of $\approx 0.8$. The mediator pathway (A→M→Y, orange) shifts the distribution *and* changes its shape because of the $M^2$ non-linearity — this is precisely what distributional mediation reveals that mean-only decompositions miss.
+
+Note that the RT pathway decomposition does not generally sum exactly to the ATE — the remainder is attributed to the **intermediate confounding** term, which captures the interaction between the Z and M channels.
 
 ## References
 

@@ -11,7 +11,7 @@
 #' @param riesz_lr [\code{numeric(1)}]\cr Learning rate for Riesz representer.
 #' @param batch_size [\code{numeric(1)}]\cr Batch size for outcome regressions.
 #' @param riesz_batch_size [\code{numeric(1)}]\cr Batch size for Riesz representer.
-#' @param device [\code{character(1)}]\cr Torch device.
+#' @param device [\code{character(1)}]\cr Torch device: "cpu", "cuda", or "mps".
 #'
 #' @return A list of control parameters.
 #' @export
@@ -26,7 +26,7 @@ dma_control <- function(crossfit_folds = 10L,
 								riesz_lr = 0.01,
 								batch_size = 64L,
 								riesz_batch_size = 64L,
-								device = c("cpu", "cuda", "mps")) {
+								device = "cpu") {
 	checkmate::assert_number(crossfit_folds)
 	checkmate::assert_number(zprime_folds)
 	checkmate::assert_number(noise_dim)
@@ -38,7 +38,7 @@ dma_control <- function(crossfit_folds = 10L,
 	checkmate::assert_number(riesz_lr)
 	checkmate::assert_number(batch_size)
 	checkmate::assert_number(riesz_batch_size)
-	checkmate::assert_character(match.arg(device), len = 1)
+	checkmate::assert_choice(device, c("cpu", "cuda", "mps"))
 	list(
 		crossfit_folds = crossfit_folds,
 		zprime_folds = zprime_folds,
@@ -51,6 +51,6 @@ dma_control <- function(crossfit_folds = 10L,
 		riesz_epochs = riesz_epochs,
 		riesz_lr = riesz_lr,
 		riesz_batch_size = as.numeric(riesz_batch_size),
-		device = torch::torch_device(match.arg(device))
+		device = torch::torch_device(device)
 	)
 }

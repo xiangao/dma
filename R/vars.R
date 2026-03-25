@@ -3,6 +3,8 @@
 #' @importFrom stats na.omit weighted.mean var qnorm dist model.matrix predict setNames
 NULL
 
+utils::globalVariables(c("estimate", "term", "conf.low", "conf.high", "Y", "Regime", "Weight"))
+
 dma_vars <- S7::new_class("dma_vars",
   properties = list(
     A = S7::class_character,

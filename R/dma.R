@@ -79,11 +79,12 @@ dma <- function(data,
 	assert_function(nn_module)
 	assert_binary_0_1(data, outcome)
 	assert_binary_0_1(data, obs)
-	assert_effect_type(moc, match.arg(effect))
+	effect <- match.arg(effect)
+	assert_effect_type(moc, effect)
 	assert_numeric(weights, len = nrow(data), finite = TRUE, any.missing = FALSE)
 
 	params <- switch(
-		match.arg(effect),
+		effect,
 		N = natural,
 		O = organic,
 		RT = recanting_twin,
@@ -120,7 +121,7 @@ dma <- function(data,
 
 	new_dma_result(
 		estimates = switch(
-			match.arg(effect),
+			effect,
 			N = calc_estimates_natural(eif_ns, weights),
 			O = calc_estimates_organic(eif_ns, weights),
 			RT = calc_estimates_rt(eif_ns, eif_rs, weights),
@@ -134,6 +135,8 @@ dma <- function(data,
 		vars = cd@vars,
 		data = data,
 		call = match.call(),
-		effect = match.arg(effect)
+		effect = effect,
+		d0 = cd@d0,
+		d1 = cd@d1
 	)
 }

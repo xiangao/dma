@@ -7,7 +7,7 @@ dma (Distributional Mediation Analysis) is an R package for causal mediation ana
 Improvements over the original enmediation package:
 - Observation weights propagated through all nuisance estimation (theta and alpha), not just the EIF stage
 - Richer result object storing trained models, folds, and data for diagnostics
-- Coefficient plot (`plot.dma_result()`) and counterfactual density plot (`plot_counterfactual_density()`)
+- Coefficient plot (`plot.dma_result()`) and counterfactual density plot (`plot_counterfactual_density()`) with optional Riesz representer weighting (`use_weights=TRUE`) for all mediation regimes
 
 ## Package Structure
 
@@ -34,11 +34,12 @@ dma/
 │   ├── assertions.R           # Input validation
 │   ├── print.R                # S3 print method
 │   ├── tidy.R                 # S3 tidy method
-│   └── plot_distribution.R    # Counterfactual density plotting
+│   └── plot_distribution.R    # Counterfactual density plotting (shift-and-predict + weighted)
 └── vignettes/
-    ├── dma.Rmd                # Comparison with crumble
-    ├── effect-types.Rmd       # All four effect types
-    └── advantages-of-engression.Rmd  # Distributional advantages
+    ├── dma.Rmd                # Main vignette: crumble comparison, oracle vs estimated, MC study
+    ├── distributional-mediation.Rmd  # Non-linear DGP with weighted counterfactual densities
+    ├── effect-types.Rmd       # All four effect types with oracle distributions
+    └── advantages-of-engression.Rmd  # Distributional advantages over mean-based methods
 ```
 
 ## Build & Install
@@ -60,7 +61,7 @@ R CMD INSTALL dma_0.1.0.tar.gz
 
 ### Key Implementation Details
 
-- `prepare_engression_x()`: One-hot encodes factor/character columns, drops zero-variance columns for training, aligns prediction columns to training reference via `ref_cols`
+- `prepare_engression_x()`: One-hot encodes factor/character columns, drops zero-variance columns for training, aligns prediction columns to training reference via `ref_cols`. Critical: shifted treatment data creates constant columns; always pass `ref_cols` when predicting on shifted data to prevent column dropping
 - `ref_levels`: Factor/character levels captured from full dataset at initialization, ensuring consistent OHE across cross-fitting folds
 - `params.R`: Data regime tuples — each effect type specifies which shifted datasets (data_0, data_1, data_0zp, data_1zp) to evaluate θ levels on
 - `make_dataset.R`: Creates torch datasets with multiple shifted data views for Riesz NN training
@@ -76,3 +77,6 @@ Optional: `Rsymphony` (for RI/RT effects — needs `coinor-libsymphony-dev` syst
 - Use `cache: false` for all torch-dependent chunks in Rmd/vignettes
 - Engression internally standardizes inputs — constant columns cause NaN; use `prepare_engression_x()` with `ref_cols` for prediction alignment
 - S7 classes for data structures (dma_vars, dma_data); S3 class for output (dma_result)
+- `dma_result` stores `d0`/`d1` as actual functions (not unevaluated expressions from `match.call()`) so downstream code like `plot_counterfactual_density()` can call them directly
+- `plot_counterfactual_density()` has two modes: (1) shift-and-predict (default, shows 2 marginal P(Y|do(A=a)) distributions), (2) `use_weights=TRUE` (Riesz representer importance sampling, shows all mediation regimes including cross-world Y(1,M(0)))
+- Alpha structure: `result$alpha_n` contains `alpha1..alpha3` matrices (natural), `result$alpha_r` contains `alpha1..alpha4` (randomized). Final alpha (alpha3 or alpha4) has columns = regime codes (e.g., "000", "100", "111") used as importance weights

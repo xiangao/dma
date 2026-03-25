@@ -22,8 +22,9 @@ dma_data <- S7::new_class("dma_data",
 
 		if (!no_Z(vars)) {
 			z_ohe <- one_hot_encode(data, vars@Z)
+			orig_Z <- vars@Z
 			vars@Z <- names(z_ohe)
-			data <- data[, !(names(data) %in% vars@Z)]
+			data <- data[, !(names(data) %in% orig_Z)]
 			data <- cbind(data, z_ohe)
 		}
 		S7::new_object(

@@ -39,6 +39,10 @@ result <- dma(
 print(result)
 tidy(result)
 plot(result)
+
+# Counterfactual density plots
+plot_counterfactual_density(result)                        # marginal P(Y|do(A=a))
+plot_counterfactual_density(result, use_weights = TRUE)    # all mediation regimes
 ```
 
 ## Features
@@ -48,9 +52,11 @@ plot(result)
 - Cross-fitting with parallel fold processing via `future.apply`
 - Observation weights propagated through all nuisance estimation stages
 - Coefficient plots and counterfactual density visualization
+- Weighted counterfactual density estimation via Riesz representers, showing all mediation regimes (Y(0,M(0)), Y(1,M(0)), Y(1,M(1))) including cross-world counterfactuals
 
 ## Vignettes
 
-- `dma.Rmd` — Comparison with crumble on natural and organic effects
-- `effect-types.Rmd` — All four effect decompositions (N, O, RI, RT)
-- `advantages-of-engression.Rmd` — When distributional regression outperforms conditional mean methods
+- `dma` — Comparison with crumble on natural and organic effects, oracle vs estimated distributions, Monte Carlo study
+- `distributional-mediation` — Non-linear DGP demonstrating distributional mediation with weighted counterfactual densities
+- `effect-types` — All four effect decompositions (N, O, RI, RT) with oracle potential outcome distributions
+- `advantages-of-engression` — When distributional regression outperforms conditional mean methods

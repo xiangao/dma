@@ -13,7 +13,7 @@
 #'
 #' @return An object of class \code{dma_result}.
 new_dma_result <- function(estimates, outcome_reg, alpha_n, alpha_r,
-						   models_y, folds, vars, data, call, effect) {
+						   models_y, folds, vars, data, call, effect, d0, d1) {
 	structure(
 		list(
 			estimates = estimates,
@@ -25,7 +25,9 @@ new_dma_result <- function(estimates, outcome_reg, alpha_n, alpha_r,
 			vars = vars,
 			data = data,
 			call = call,
-			effect = effect
+			effect = effect,
+			d0 = d0,
+			d1 = d1
 		),
 		class = "dma_result"
 	)
