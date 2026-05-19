@@ -1,0 +1,17 @@
+url: https://xiangao.github.io/dma/
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left:  [intro, articles, news]
+    right: [search, github]
+
+articles:
+  - title: Vignettes
+    contents:
+      - dma
+      - distributional-mediation
+      - effect-types
+      - advantages-of-engression

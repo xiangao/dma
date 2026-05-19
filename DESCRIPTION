@@ -15,6 +15,7 @@ Description: Implements causal mediation analysis using energy regression
     with engression replacing traditional machine learning for outcome regressions
     and engression-style neural networks for Riesz representer estimation.
 License: MIT + file LICENSE
+URL: https://xiangao.github.io/dma/, https://github.com/xiangao/dma
 Encoding: UTF-8
 LazyData: true
 Depends:

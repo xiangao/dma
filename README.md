@@ -1,5 +1,7 @@
 # dma
 
+[![pkgdown](https://img.shields.io/badge/pkgdown-site-blue.svg)](https://xiangao.github.io/dma/)
+
 Distributional Mediation Analysis using energy regression.
 
 ## Overview
@@ -56,7 +58,11 @@ plot_counterfactual_density(result, use_weights = TRUE)    # all mediation regim
 
 ## Vignettes
 
-- `dma` — Comparison with crumble on natural and organic effects, oracle vs estimated distributions, Monte Carlo study
-- `distributional-mediation` — Non-linear DGP demonstrating distributional mediation with weighted counterfactual densities
-- `effect-types` — All four effect decompositions (N, O, RI, RT) with oracle potential outcome distributions
-- `advantages-of-engression` — When distributional regression outperforms conditional mean methods
+Full documentation: **<https://xiangao.github.io/dma/>**
+
+| Vignette | Description |
+|----------|-------------|
+| [Distributional mediation analysis](https://xiangao.github.io/dma/articles/dma.html) | Comparison with crumble on natural and organic effects, oracle vs estimated distributions, Monte Carlo study |
+| [Distributional mediation](https://xiangao.github.io/dma/articles/distributional-mediation.html) | Non-linear DGP demonstrating distributional mediation with weighted counterfactual densities |
+| [Effect types](https://xiangao.github.io/dma/articles/effect-types.html) | All four effect decompositions (N, O, RI, RT) with oracle potential outcome distributions |
+| [Advantages of engression](https://xiangao.github.io/dma/articles/advantages-of-engression.html) | When distributional regression outperforms conditional mean methods |
