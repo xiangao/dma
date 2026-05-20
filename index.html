@@ -47,11 +47,11 @@
 <div class="page-header"><h1 id="dma">dma<a class="anchor" aria-label="anchor" href="#dma"></a>
 </h1></div>
 <p><a href="https://xiangao.github.io/dma/"><img src="https://img.shields.io/badge/pkgdown-site-blue.svg" alt="pkgdown"></a></p>
-<p>Distributional Mediation Analysis using energy regression.</p>
+<p>Distributional mediation analysis using energy regression.</p>
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>dma implements causal mediation analysis using <code>engression</code> (distributional regression with energy score loss) for nuisance parameter estimation. It supports four effect decompositions:</p>
+<p><code>dma</code> implements causal mediation analysis with <code>engression</code> for nuisance estimation. The point of using a distributional regression method is that the counterfactual outcome distribution can change in ways that are not summarized by a conditional mean. The package supports four effect decompositions:</p>
 <ul>
 <li>
 <strong>Natural (N)</strong>: Direct and indirect effects</li>
@@ -62,7 +62,7 @@
 <li>
 <strong>Recanting Twins (RT)</strong>: Four-way path decomposition</li>
 </ul>
-<p>Based on the framework of Liu, Williams, Rudolph &amp; Diaz (2024), with engression replacing traditional machine learning for both outcome regressions and Riesz representer density ratio estimation.</p>
+<p>The estimands follow Liu, Williams, Rudolph, and Diaz (2024). Here <code>engression</code> is used for both the outcome regressions and the Riesz-representer density-ratio steps.</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -97,7 +97,7 @@
 <span><span class="fu">plot_counterfactual_density</span><span class="op">(</span><span class="va">result</span>, use_weights <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>    <span class="co"># all mediation regimes</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="features">Features<a class="anchor" aria-label="anchor" href="#features"></a>
+<h2 id="what-is-included">What is included<a class="anchor" aria-label="anchor" href="#what-is-included"></a>
 </h2>
 <ul>
 <li>Distributional outcome regression via <code>engression</code> (learns full P(Y|X), not just E[Y|X])</li>
@@ -106,7 +106,7 @@
 </li>
 <li>Observation weights propagated through all nuisance estimation stages</li>
 <li>Coefficient plots and counterfactual density visualization</li>
-<li>Weighted counterfactual density estimation via Riesz representers, showing all mediation regimes (Y(0,M(0)), Y(1,M(0)), Y(1,M(1))) including cross-world counterfactuals</li>
+<li>Weighted counterfactual density estimation for the mediation regimes</li>
 </ul>
 </div>
 <div class="section level2">
