@@ -528,7 +528,10 @@ data.frame(
 )
 ```
 
-The direct pathway (A→Y, purple vs blue) creates a location shift of $\approx 0.8$. The mediator pathway (A→M→Y, orange) shifts the distribution *and* changes its shape because of the $M^2$ non-linearity — this is precisely what distributional mediation reveals that mean-only decompositions miss.
+The direct pathway (A→Y, purple vs blue) creates a location shift of about
+0.8. The mediator pathway (A→M→Y, orange) shifts the distribution and changes
+its shape because of the $M^2$ non-linearity. This is the kind of pattern a
+mean-only decomposition hides.
 
 Note that the RT pathway decomposition does not generally sum exactly to the ATE — the remainder is attributed to the **intermediate confounding** term, which captures the interaction between the Z and M channels.
 

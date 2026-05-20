@@ -431,15 +431,15 @@ print(summary_df)
 
 ## Summary
 
-Both `crumble` and `dma` implement the same semiparametric estimation
-framework for causal mediation.  The key trade-off:
+Both `crumble` and `dma` target the same mediation estimands. The practical
+difference is in the nuisance fitting:
 
 - **crumble** uses `mlr3superlearner`, which ensembles many classical ML
-  learners (GLM, random forest, MARS, etc.) — flexible but requires many
-  packages and tuning.
+  learners (GLM, random forest, MARS, etc.). This gives more modeling choices,
+  but also more packages and tuning choices.
 - **dma** uses `engression`, a single neural network that learns the
-  full conditional distribution — simpler dependency structure, potentially
-  better for complex conditional distributions, but requires torch.
+  full conditional distribution. This keeps the dependency structure narrower,
+  but requires torch.
 
 For the Riesz representer ($\alpha$), both packages use the same approach:
 a neural network trained with the Riesz loss $E[\alpha(X)^2 - 2 w \cdot f(\alpha, X')]$.

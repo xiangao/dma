@@ -28,7 +28,10 @@ plan(multisession)
 
 ## Introduction
 
-Energy regression (`engression`) learns the **full conditional distribution** $P(Y|X)$, whereas standard mediation tools like `crumble` (via `SuperLearner`) typically target only the **conditional mean** $E[Y|X]$. This vignette demonstrates scenarios where this difference matters for obtaining correct causal estimates, comparing `dma` against `crumble` with a GLM learner on each scenario.
+Energy regression (`engression`) learns the conditional distribution
+$P(Y|X)$. Standard mediation tools such as `crumble` usually target the
+conditional mean $E[Y|X]$. This vignette compares `dma` with `crumble` in
+settings where that distinction matters.
 
 ### Mediation decomposition
 
@@ -387,7 +390,10 @@ plot_po_distributions(Y00, Y11, Y10, Y01,
 | Heavy-tailed | 1.0 | 1.0 | 2.0 | 1.07 | 1.05 | Cauchy tails (both methods OK) |
 | Extrapolation | 0.0 | 5.0 | 5.0 | 4.58 | 9.81 | Distribution shifted 5 SDs out of range |
 
-The potential outcome distributions above show what mean-based estimates compress into a single number. In scenarios 1–2, the treatment operates *entirely* through the mediator ($\text{NDE} = 0$), but the mechanism is distributional — changing variance or modality rather than the mean. These are precisely the cases where `dma`'s distributional regression recovers effects that conditional-mean methods miss.
+The potential outcome distributions above show what mean-based estimates
+compress into a single number. In scenarios 1 and 2, the treatment operates
+through the mediator ($\text{NDE} = 0$), but the mechanism changes variance or
+modality rather than the mean.
 
 ## References
 

@@ -22,11 +22,15 @@ knitr::opts_chunk$set(
 )
 ```
 
-## Beyond the Mean: Why Distributional Mediation?
+## Why look beyond the mean?
 
-Traditional mediation analysis focuses on decomposing the **Average Treatment Effect (ATE)** into the **Natural Direct Effect (NDE)** and the **Natural Indirect Effect (NIE)**. While these provide a useful summary, they only describe the "center" of the causal response.
+Traditional mediation analysis often decomposes the average treatment effect
+into a natural direct effect and a natural indirect effect. That is useful, but
+it only describes an average.
 
-Causal mechanisms often shift the **shape**, **variance**, or **modality** of an outcome without necessarily shifting its mean. Energy Regression (`engression`) allows us to recover the entire counterfactual distribution $P(Y | do(A=d))$, giving us a much richer picture of the causal process.
+A mechanism can change the spread or the tails of the outcome distribution even
+when the mean effect is small. Here I use `engression` to estimate the
+counterfactual distribution $P(Y | do(A=d))$, not only its mean.
 
 ## Simulation: The Multi-Modal Response
 
@@ -201,12 +205,14 @@ In this DGP with no direct effect ($Y = M^2 + W + \epsilon$):
 - **Y(1, M(1))** shifts right with a heavier tail — the entire effect operates through $M$, changing the **shape** of the outcome distribution, not just its mean.
 - The weighted density (dashed) recovers all three counterfactual distributions from the observed data using the Riesz representer cascade, including the cross-world $Y(1, M(0))$ that cannot be obtained by simple treatment shifting.
 
-Traditional methods report the average shift (NIE), but `dma` lets you see how the entire probability mass of the outcome moves — invaluable for understanding treatment mechanisms in non-linear systems.
+The mean effect is still there, but the density plot shows where the probability
+mass moves.
 
 ## Summary
 
-The `dma` package provides:
+This package is meant to provide:
 
-1. **Valid Causal Estimates**: Doubly-robust estimates of mean effects (NDE, NIE, ATE) with observation weights propagated through all nuisance estimation.
-2. **Distributional Insight**: Full counterfactual density visualization via saved `engression` models.
-3. **Flexibility**: Robustness to non-linearities and non-Gaussian noise that would violate the assumptions of standard mediation software.
+1. Mean-effect estimates for NDE, NIE, and ATE.
+2. Counterfactual density plots from the fitted `engression` models.
+3. A way to check whether a mediation story is mostly about the mean or about
+   other parts of the distribution.
