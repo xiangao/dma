@@ -13,7 +13,7 @@ test_that("F_hat returns correct structure and satisfies basic properties", {
   dat <- data.frame(A, M, Y, W)
 
   fit <- tryCatch(
-    dma::dma(
+    dmaR::dma(
       data       = dat,
       trt        = "A",
       outcome    = "Y",
@@ -22,7 +22,7 @@ test_that("F_hat returns correct structure and satisfies basic properties", {
       effect     = "N",
       d0         = d_id,
       d1         = d_id,
-      control    = dma::dma_control(
+      control    = dmaR::dma_control(
         crossfit_folds   = 2L,
         num_epochs       = 1L,
         riesz_epochs     = 1L,
@@ -40,7 +40,7 @@ test_that("F_hat returns correct structure and satisfies basic properties", {
   )
 
   y_grid <- seq(-2, 2, by = 0.5)
-  out <- dma::F_hat(fit, y = y_grid)
+  out <- dmaR::F_hat(fit, y = y_grid)
 
   # (1) structure
   expect_s3_class(out, "data.frame")
@@ -63,5 +63,5 @@ test_that("F_hat returns correct structure and satisfies basic properties", {
 })
 
 test_that("F_hat validates inputs correctly", {
-  expect_error(dma::F_hat(list(), y = 1:3), "'fit' must be a dma_result")
+  expect_error(dmaR::F_hat(list(), y = 1:3), "'fit' must be a dma_result")
 })

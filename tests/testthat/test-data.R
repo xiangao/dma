@@ -6,9 +6,9 @@ test_that("dma_data stores ref_levels from factors", {
     exercises = c(1, 0, 1, 0)
   )
 
-  cd <- dma:::dma_data(
+  cd <- dmaR:::dma_data(
     data = df,
-    vars = dma:::dma_vars(
+    vars = dmaR:::dma_vars(
       A = "sports", Y = "bmi", M = "exercises",
       Z = NA_character_, W = "age",
       C = NA_character_, id = NA_character_
@@ -23,7 +23,7 @@ test_that("dma_data stores ref_levels from factors", {
 })
 
 test_that("dma_vars stores variable names correctly", {
-  vars <- dma:::dma_vars(
+  vars <- dmaR:::dma_vars(
     A = "trt", Y = "outcome", M = c("m1", "m2"),
     Z = NA_character_, W = c("w1", "w2"),
     C = NA_character_, id = NA_character_
@@ -36,7 +36,7 @@ test_that("dma_vars stores variable names correctly", {
 })
 
 test_that("dma_control has correct defaults", {
-  ctrl <- dma:::dma_control()
+  ctrl <- dmaR:::dma_control()
 
   expect_equal(ctrl$crossfit_folds, 10L)
   expect_equal(ctrl$noise_dim, 5L)

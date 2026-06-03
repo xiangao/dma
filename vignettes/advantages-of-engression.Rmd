@@ -98,7 +98,7 @@ In many settings, a behavior (the mediator) is bimodal: individuals are either "
 - **True NIE**: $E[M^2|A=1] - E[M^2|A=0] = 4.25 - 0.25 = \mathbf{4.0}$
 
 ```{r eval=FALSE}
-library(dma)
+library(dmaR)
 library(crumble)
 
 set.seed(123)

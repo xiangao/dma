@@ -117,7 +117,7 @@ print(res_crumble_n)
 ### dma
 
 ```{r dma-natural, cache=FALSE}
-library(dma)
+library(dmaR)
 set.seed(2345)
 
 res_dma_n <- dma(

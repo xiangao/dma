@@ -42,7 +42,7 @@ This vignette demonstrates each effect type on the `weight_behavior` dataset fro
 ## Setup
 
 ```{r eval=FALSE}
-library(dma)
+library(dmaR)
 library(mma)
 
 data(weight_behavior)

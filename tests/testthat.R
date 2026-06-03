@@ -1,4 +1,4 @@
 library(testthat)
-library(dma)
+library(dmaR)
 
 test_check("dma")
