@@ -76,5 +76,10 @@ Full documentation: **<https://xiangao.github.io/dma/>**
 | [Effect types](https://xiangao.github.io/dma/articles/effect-types.html) | All four effect decompositions (N, O, RI, RT) with oracle potential outcome distributions |
 | [Advantages of engression](https://xiangao.github.io/dma/articles/advantages-of-engression.html) | When distributional regression outperforms conditional mean methods |
 
-# 
+# Package index
+
+## All functions
+
+- [`F_hat()`](https://xiangao.github.io/dma/reference/F_hat.md) :
+  Counterfactual CDF estimates by y
 
