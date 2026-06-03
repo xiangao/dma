@@ -9,11 +9,11 @@
 Source:
 [`DESCRIPTION`](https://github.com/xiangao/dma/blob/main/DESCRIPTION)
 
-Liu X (2026). *dma: Distributional Mediation Analysis*. R package
+Liu X (2026). *dmaR: Distributional Mediation Analysis*. R package
 version 0.1.0, <https://xiangao.github.io/dma/>.
 
     @Manual{,
-      title = {dma: Distributional Mediation Analysis},
+      title = {dmaR: Distributional Mediation Analysis},
       author = {Xiao Liu},
       year = {2026},
       note = {R package version 0.1.0},

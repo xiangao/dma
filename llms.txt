@@ -33,7 +33,7 @@ devtools::install_github("xiangao/dma")
 
 ``` r
 
-library(dma)
+library(dmaR)
 
 result <- dma(
   data = df,
