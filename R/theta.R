@@ -23,7 +23,9 @@ estimate_theta <- function(cd, folds, params, control) {
 
 # Fit engression and predict on multiple named datasets
 fit_and_predict <- function(X_train, Y_train, pred_data_list, x_vars, ref_cols, control, weights = NULL) {
-	model <- engression::engression(
+	# Pass batch_size and weights only when the installed engression supports
+	# them. CRAN engression 0.1.6 does not accept either; an extended fork does.
+	engr_args <- list(
 		X = X_train,
 		Y = matrix(Y_train, ncol = 1),
 		noise_dim = control$noise_dim,
@@ -31,10 +33,12 @@ fit_and_predict <- function(X_train, Y_train, pred_data_list, x_vars, ref_cols, 
 		num_layer = control$num_layer,
 		num_epochs = control$num_epochs,
 		lr = control$lr,
-		batch_size = control$batch_size,
-		weights = weights,
 		silent = TRUE
 	)
+	engr_formals <- names(formals(engression::engression))
+	if ("batch_size" %in% engr_formals) engr_args$batch_size <- control$batch_size
+	if ("weights" %in% engr_formals) engr_args$weights <- weights
+	model <- do.call(engression::engression, engr_args)
 	preds <- lapply(pred_data_list, function(d) {
 		as.numeric(predict(model, prepare_engression_x(d, x_vars, ref_cols), type = "mean"))
 	})
