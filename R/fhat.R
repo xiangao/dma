@@ -23,9 +23,10 @@
 #'   \eqn{P(Y \le y \mid \cdot)}.  Default 200.
 #' @param jkl  Character string identifying which (a, a') regime to evaluate.
 #'   Must be one of \code{colnames(fit$alpha_n[[1]])} (for natural/organic/RT
-#'   effects) or \code{colnames(fit$alpha_r[[1]])} (for RI effects).  Defaults
-#'   to the \emph{last} column (by convention, the (1,1) regime for natural
-#'   effects).  Pass explicitly to select a different counterfactual.
+#'   effects) or \code{colnames(fit$alpha_r[[1]])} (for RI effects).  If omitted,
+#'   the last stored regime column is used and a message reports which one;
+#'   the stored column order is not guaranteed, so always pass \code{jkl}
+#'   explicitly when the target regime matters.
 #'
 #' @return A \code{data.frame} with columns:
 #' \describe{
@@ -63,6 +64,10 @@ F_hat <- function(fit, y, level = 0.95, N_sim = 200L, jkl = NULL) {
   regime_cols <- colnames(alphas[[1]])
   if (is.null(jkl)) {
     jkl <- regime_cols[length(regime_cols)]
+    message(sprintf(
+      "F_hat(): no 'jkl' supplied; using regime '%s'. Pass 'jkl' explicitly to select the target counterfactual.",
+      jkl
+    ))
   }
   if (!jkl %in% regime_cols) {
     stop(sprintf("'jkl' must be one of: %s", paste(regime_cols, collapse = ", ")))
@@ -131,11 +136,14 @@ F_hat <- function(fit, y, level = 0.95, N_sim = 200L, jkl = NULL) {
   # fold-indexed subsets of each shifted dataset
   fold_subset <- function(df) lapply(folds, function(f) df[f$validation_set, , drop = FALSE])
 
+  # Only two engression draws enter the EIF: the observed data (for
+  # mu_tilde_obs) and the top-stage shift -- j for natural effects, i for RI.
+  # The lower cascade stages (k, l shifts) are OLS predictions of these draws,
+  # so no additional engression sampling is needed for them.
   samp_obs_list <- draw_samples(fold_subset(data))
-  samp_j_list   <- draw_samples(fold_subset(shifted_j))
-  samp_k_list   <- draw_samples(fold_subset(shifted_k))
-  samp_l_list   <- draw_samples(fold_subset(shifted_l))
-  if (!use_natural) {
+  if (use_natural) {
+    samp_j_list <- draw_samples(fold_subset(shifted_j))
+  } else {
     samp_i_list <- draw_samples(fold_subset(shifted_i))
   }
 
@@ -148,10 +156,9 @@ F_hat <- function(fit, y, level = 0.95, N_sim = 200L, jkl = NULL) {
   }
 
   samp_obs <- reorder_rows(samp_obs_list)
-  samp_j   <- reorder_rows(samp_j_list)
-  samp_k   <- reorder_rows(samp_k_list)
-  samp_l   <- reorder_rows(samp_l_list)
-  if (!use_natural) {
+  if (use_natural) {
+    samp_j <- reorder_rows(samp_j_list)
+  } else {
     samp_i <- reorder_rows(samp_i_list)
   }
 
@@ -196,8 +203,6 @@ F_hat <- function(fit, y, level = 0.95, N_sim = 200L, jkl = NULL) {
 
     # conditional CDF at each observation (n-vectors)
     mu_tilde_obs <- rowMeans(samp_obs <= yval)
-    mu_tilde_j   <- rowMeans(samp_j   <= yval)
-    mu_tilde_k   <- rowMeans(samp_k   <= yval)
 
     # indicator outcome
     Y_ind <- as.numeric(!is.na(Y_obs) & Y_obs <= yval)
@@ -205,14 +210,15 @@ F_hat <- function(fit, y, level = 0.95, N_sim = 200L, jkl = NULL) {
 
     if (use_natural) {
       # -------------------------------------------------------------------
-      # Natural effect cascade (3-level):
+      # Natural effect cascade (3-level), mirroring eif_n in eif.R:
       #   fit3_natural = mu_tilde_obs  (P(Y<=y | obs (A,M,W)))
-      #   b3           = E[mu_tilde_j | (A,W)] predicted at data_k
+      #   b3           = mu_tilde_j    (P(Y<=y | A<-j, obs (M,W)))
       #   fit2_natural = E[mu_tilde_j | (A,W)] predicted at obs data
-      #   b2           = E[b3 | W] predicted at data_l
-      #   fit1_natural = E[b3 | W] predicted at obs data
-      #   b1           = E[b2_l]
+      #   b2           = E[mu_tilde_j | (A,W)] predicted at data_k
+      #   fit1_natural = E[b2 | W] predicted at obs data
+      #   b1           = E[b2 | W] predicted at data_l (per observation)
       # -------------------------------------------------------------------
+      mu_tilde_j <- rowMeans(samp_j <= yval)
 
       # stage 2: lm(mu_tilde_j ~ A + W_ohe), predict at data_k and obs data
       coef2      <- safe_lm(X_AW, mu_tilde_j)
@@ -232,17 +238,15 @@ F_hat <- function(fit, y, level = 0.95, N_sim = 200L, jkl = NULL) {
         fit1_nat <- b2_l
       }
 
-      b1 <- mean(b2_l, na.rm = TRUE)
-
       # EIF (mirrors eif_n with indicator outcome and CDF nuisances):
       # alpha3 * mult * (Y_ind - fit3_natural) +
-      # alpha2 * (b3    - fit2_natural)        +
-      # alpha1 * (b2    - fit1_natural)        +
-      # b1
+      # alpha2 * (b3 - fit2_natural)           +   b3 is the j-shifted draw
+      # alpha1 * (b2 - fit1_natural)           +
+      # b1                                         per observation, not E[b1]
       eif_vals <- alph3 * mult * (Y_ind - mu_tilde_obs) +
-                  alph2 * (mu_tilde_k   - fit2_nat)     +
+                  alph2 * (mu_tilde_j   - fit2_nat)     +
                   alph1 * (b3_k         - fit1_nat)     +
-                  b1
+                  b2_l
 
     } else {
       # -------------------------------------------------------------------
@@ -254,7 +258,7 @@ F_hat <- function(fit, y, level = 0.95, N_sim = 200L, jkl = NULL) {
       #   fit2_natural = E[b4 | (A,W)] predicted at obs data
       #   b2           = E[b3 | W] predicted at data_l
       #   fit1_natural = E[b3 | W] predicted at obs data
-      #   b1           = E[b2_l]
+      #   b1           = E[b3 | W] predicted at data_l (per observation)
       # -------------------------------------------------------------------
       mu_tilde_i <- rowMeans(samp_i <= yval)
 
@@ -282,13 +286,13 @@ F_hat <- function(fit, y, level = 0.95, N_sim = 200L, jkl = NULL) {
         fit1_nat <- b2_l
       }
 
-      b1 <- mean(b2_l, na.rm = TRUE)
-
+      # Mirrors eif_r: the alpha3 term uses the i-shifted draw (b4 = mu_tilde_i),
+      # and the final term is the per-observation l-shifted prediction.
       eif_vals <- alph4 * mult * (Y_ind - mu_tilde_obs) +
-                  alph3 * (mu_tilde_k - fit3_nat)       +
+                  alph3 * (mu_tilde_i - fit3_nat)       +
                   alph2 * (b4_j       - fit2_nat)       +
                   alph1 * (b3_k       - fit1_nat)       +
-                  b1
+                  b2_l
     }
 
     Fhat_y <- mean(eif_vals, na.rm = TRUE)
