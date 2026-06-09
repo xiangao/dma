@@ -18,9 +18,10 @@ F_hat(fit, y, level = 0.95, N_sim = 200L, jkl = NULL)
 
 \item{jkl}{Character string identifying which (a, a') regime to evaluate.
 Must be one of \code{colnames(fit$alpha_n[[1]])} (for natural/organic/RT
-effects) or \code{colnames(fit$alpha_r[[1]])} (for RI effects).  Defaults
-to the \emph{last} column (by convention, the (1,1) regime for natural
-effects).  Pass explicitly to select a different counterfactual.}
+effects) or \code{colnames(fit$alpha_r[[1]])} (for RI effects).  If omitted,
+the last stored regime column is used and a message reports which one;
+the stored column order is not guaranteed, so always pass \code{jkl}
+explicitly when the target regime matters.}
 }
 \value{
 A \code{data.frame} with columns:
