@@ -23,10 +23,10 @@
 #'   \eqn{P(Y \le y \mid \cdot)}.  Default 200.
 #' @param jkl  Character string identifying which (a, a') regime to evaluate.
 #'   Must be one of \code{colnames(fit$alpha_n[[1]])} (for natural/organic/RT
-#'   effects) or \code{colnames(fit$alpha_r[[1]])} (for RI effects).  If omitted,
-#'   the last stored regime column is used and a message reports which one;
-#'   the stored column order is not guaranteed, so always pass \code{jkl}
-#'   explicitly when the target regime matters.
+#'   effects) or \code{colnames(fit$alpha_r[[1]])} (for RI effects).  Required
+#'   whenever more than one regime is stored (the stored column order is not
+#'   guaranteed, so a default would silently select an arbitrary regime); may
+#'   be omitted only when exactly one regime exists.
 #'
 #' @return A \code{data.frame} with columns:
 #' \describe{
@@ -63,11 +63,13 @@ F_hat <- function(fit, y, level = 0.95, N_sim = 200L, jkl = NULL) {
 
   regime_cols <- colnames(alphas[[1]])
   if (is.null(jkl)) {
-    jkl <- regime_cols[length(regime_cols)]
-    message(sprintf(
-      "F_hat(): no 'jkl' supplied; using regime '%s'. Pass 'jkl' explicitly to select the target counterfactual.",
-      jkl
-    ))
+    if (length(regime_cols) > 1L) {
+      stop(sprintf(
+        "F_hat(): 'jkl' is required when more than one regime is stored. Available regimes: %s",
+        paste(regime_cols, collapse = ", ")
+      ))
+    }
+    jkl <- regime_cols[1L]
   }
   if (!jkl %in% regime_cols) {
     stop(sprintf("'jkl' must be one of: %s", paste(regime_cols, collapse = ", ")))

@@ -18,10 +18,10 @@ F_hat(fit, y, level = 0.95, N_sim = 200L, jkl = NULL)
 
 \item{jkl}{Character string identifying which (a, a') regime to evaluate.
 Must be one of \code{colnames(fit$alpha_n[[1]])} (for natural/organic/RT
-effects) or \code{colnames(fit$alpha_r[[1]])} (for RI effects).  If omitted,
-the last stored regime column is used and a message reports which one;
-the stored column order is not guaranteed, so always pass \code{jkl}
-explicitly when the target regime matters.}
+effects) or \code{colnames(fit$alpha_r[[1]])} (for RI effects).  Required
+whenever more than one regime is stored (the stored column order is not
+guaranteed, so a default would silently select an arbitrary regime); may
+be omitted only when exactly one regime exists.}
 }
 \value{
 A \code{data.frame} with columns:

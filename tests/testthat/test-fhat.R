@@ -40,7 +40,13 @@ test_that("F_hat returns correct structure and satisfies basic properties", {
   )
 
   y_grid <- seq(-2, 2, by = 0.5)
-  out <- dmaR::F_hat(fit, y = y_grid)
+
+  # (0) jkl is required when more than one regime is stored
+  regimes <- colnames(fit$alpha_n[[1]])
+  if (length(regimes) > 1L) {
+    expect_error(dmaR::F_hat(fit, y = y_grid), "'jkl' is required")
+  }
+  out <- dmaR::F_hat(fit, y = y_grid, jkl = regimes[length(regimes)])
 
   # (1) structure
   expect_s3_class(out, "data.frame")
