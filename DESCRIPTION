@@ -36,6 +36,7 @@ Imports:
     ife (>= 0.2.1)
 Suggests:
     testthat (>= 3.0.0),
+    praise,
     Rsymphony,
     crumble,
     ggplot2,
