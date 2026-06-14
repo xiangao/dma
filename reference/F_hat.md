@@ -34,9 +34,10 @@ F_hat(fit, y, level = 0.95, N_sim = 200L, jkl = NULL)
 
   Character string identifying which (a, a') regime to evaluate. Must be
   one of `colnames(fit$alpha_n[[1]])` (for natural/organic/RT effects)
-  or `colnames(fit$alpha_r[[1]])` (for RI effects). Defaults to the
-  *last* column (by convention, the (1,1) regime for natural effects).
-  Pass explicitly to select a different counterfactual.
+  or `colnames(fit$alpha_r[[1]])` (for RI effects). Required whenever
+  more than one regime is stored (the stored column order is not
+  guaranteed, so a default would silently select an arbitrary regime);
+  may be omitted only when exactly one regime exists.
 
 ## Value
 

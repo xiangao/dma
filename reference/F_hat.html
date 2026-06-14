@@ -73,9 +73,10 @@ y-indexed efficient influence function (see companion paper, 5.1).</p>
 <dt id="arg-jkl">jkl<a class="anchor" aria-label="anchor" href="#arg-jkl"></a></dt>
 <dd><p>Character string identifying which (a, a') regime to evaluate.
 Must be one of <code>colnames(fit$alpha_n[[1]])</code> (for natural/organic/RT
-effects) or <code>colnames(fit$alpha_r[[1]])</code> (for RI effects).  Defaults
-to the <em>last</em> column (by convention, the (1,1) regime for natural
-effects).  Pass explicitly to select a different counterfactual.</p></dd>
+effects) or <code>colnames(fit$alpha_r[[1]])</code> (for RI effects).  Required
+whenever more than one regime is stored (the stored column order is not
+guaranteed, so a default would silently select an arbitrary regime); may
+be omitted only when exactly one regime exists.</p></dd>
 
 </dl></div>
     <div class="section level2">
