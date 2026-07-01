@@ -15,7 +15,8 @@ F_hat(fit, y, level = 0.95, N_sim = 200L, jkl = NULL)
 
 - fit:
 
-  A `dma_result` returned by `dma`.
+  A `dma_result` returned by
+  [`dma`](https://xiangao.github.io/dma/reference/dma.md).
 
 - y:
 

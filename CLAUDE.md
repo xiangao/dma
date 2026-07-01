@@ -13,8 +13,9 @@ Improvements over the original enmediation package: - Observation
 weights propagated through all nuisance estimation (theta and alpha),
 not just the EIF stage - Richer result object storing trained models,
 folds, and data for diagnostics - Coefficient plot (`plot.dma_result()`)
-and counterfactual density plot (`plot_counterfactual_density()`) with
-optional Riesz representer weighting (`use_weights=TRUE`) for all
+and counterfactual density plot
+([`plot_counterfactual_density()`](https://xiangao.github.io/dma/reference/plot_counterfactual_density.md))
+with optional Riesz representer weighting (`use_weights=TRUE`) for all
 mediation regimes
 
 ## Package Structure
@@ -107,12 +108,14 @@ RI/RT effects — needs `coinor-libsymphony-dev` system library),
 - `dma_result` stores `d0`/`d1` as actual functions (not unevaluated
   expressions from
   [`match.call()`](https://rdrr.io/r/base/match.call.html)) so
-  downstream code like `plot_counterfactual_density()` can call them
-  directly
-- `plot_counterfactual_density()` has two modes: (1) shift-and-predict
-  (default, shows 2 marginal P(Y\|do(A=a)) distributions), (2)
-  `use_weights=TRUE` (Riesz representer importance sampling, shows all
-  mediation regimes including cross-world Y(1,M(0)))
+  downstream code like
+  [`plot_counterfactual_density()`](https://xiangao.github.io/dma/reference/plot_counterfactual_density.md)
+  can call them directly
+- [`plot_counterfactual_density()`](https://xiangao.github.io/dma/reference/plot_counterfactual_density.md)
+  has two modes: (1) shift-and-predict (default, shows 2 marginal
+  P(Y\|do(A=a)) distributions), (2) `use_weights=TRUE` (Riesz
+  representer importance sampling, shows all mediation regimes including
+  cross-world Y(1,M(0)))
 - Alpha structure: `result$alpha_n` contains `alpha1..alpha3` matrices
   (natural), `result$alpha_r` contains `alpha1..alpha4` (randomized).
   Final alpha (alpha3 or alpha4) has columns = regime codes (e.g.,
