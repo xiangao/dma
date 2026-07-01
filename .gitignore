@@ -5,3 +5,4 @@
 *_files/
 README.html
 *.knit.md
+/docs/
